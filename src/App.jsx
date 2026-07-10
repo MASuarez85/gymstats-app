@@ -584,6 +584,7 @@ export default function WorkoutTracker() {
       {/* Header */}
       <div style={{
         padding: '18px 20px 14px', borderBottom: `1px solid ${COLORS.line}`,
+        paddingTop: 'calc(18px + env(safe-area-inset-top))',
         background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
       }}>
         <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: -0.5 }}>
@@ -1181,6 +1182,7 @@ export default function WorkoutTracker() {
       <div style={{
         display: 'flex', borderTop: `1px solid ${COLORS.line}`,
         background: 'rgba(28,28,30,0.78)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
         {[
           { key: 'registrar', label: 'Registrar', icon: Plus },
