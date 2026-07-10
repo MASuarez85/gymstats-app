@@ -1,0 +1,9 @@
+{
+  "name": "GymStats",
+  "short_name": "GymStats",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#151513",
+  "theme_color": "#151513",
+  "orientation": "portrait"
+}
