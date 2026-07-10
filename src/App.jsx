@@ -5,30 +5,31 @@ import { Camera, Check, X, Plus, Calendar, TrendingUp, Dumbbell, Loader2, Chevro
 const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core', 'Glúteos', 'Cardio'];
 
 const MUSCLE_COLORS = {
-  Pecho: '#E6432A',
-  Espalda: '#C9A24A',
-  Piernas: '#5B8C5A',
-  Hombros: '#4A7A9C',
-  Brazos: '#9C5B8C',
-  Core: '#B08C3A',
-  Glúteos: '#8C5A3A',
-  Cardio: '#6B6B66',
+  Pecho: '#FA114F',
+  Espalda: '#FF9F0A',
+  Piernas: '#A2E834',
+  Hombros: '#0AF6F1',
+  Brazos: '#BF5AF2',
+  Core: '#FFD60A',
+  Glúteos: '#FF6482',
+  Cardio: '#64D2FF',
 };
 
 const COLORS = {
-  bg: '#151513',
-  surface: '#1E1E1B',
-  surfaceRaised: '#26261F',
-  chalk: '#F2F0E6',
-  chalkDim: '#8C8A7E',
-  hazard: '#E6432A',
-  hazardDim: '#7A2A1F',
-  brass: '#C9A24A',
-  line: '#332F26',
+  bg: '#000000',
+  surface: '#1C1C1E',
+  surfaceRaised: '#2C2C2E',
+  chalk: '#FFFFFF',
+  chalkDim: '#8E8E93',
+  hazard: '#FA114F',
+  hazardDim: '#4A0F22',
+  brass: '#A2E834',
+  stand: '#0AF6F1',
+  line: 'rgba(255,255,255,0.09)',
 };
 
 const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+@font-face { font-family: 'SFRounded'; src: local('SF Pro Rounded'); }
 `;
 
 function uid() {
@@ -83,6 +84,35 @@ function PlateStack({ kg }) {
   );
 }
 
+// Anillos de actividad estilo Apple Fitness: cada uno recibe un valor 0-1
+function ActivityRings({ move, exercise, stand, size = 116 }) {
+  const rings = [
+    { r: 42, pct: move, color: COLORS.hazard },
+    { r: 32, pct: exercise, color: COLORS.brass },
+    { r: 22, pct: stand, color: COLORS.stand },
+  ];
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size}>
+      {rings.map((ring, i) => {
+        const circumference = 2 * Math.PI * ring.r;
+        const clamped = Math.min(1, Math.max(0, ring.pct));
+        return (
+          <g key={i}>
+            <circle cx="50" cy="50" r={ring.r} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="8" />
+            <circle
+              cx="50" cy="50" r={ring.r} fill="none" stroke={ring.color} strokeWidth="8"
+              strokeDasharray={`${clamped * circumference} ${circumference}`}
+              strokeLinecap="round"
+              transform="rotate(-90 50 50)"
+              style={{ transition: 'stroke-dasharray 0.6s ease' }}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function StampBadge({ show }) {
   if (!show) return null;
   return (
@@ -91,23 +121,24 @@ function StampBadge({ show }) {
         position: 'absolute',
         top: '50%',
         left: '50%',
-        transform: 'translate(-50%, -50%) rotate(-9deg)',
-        border: `3px solid ${COLORS.hazard}`,
-        color: COLORS.hazard,
-        fontFamily: "'Oswald', sans-serif",
+        transform: 'translate(-50%, -50%)',
+        display: 'flex', alignItems: 'center', gap: 8,
+        color: '#fff',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif",
         fontWeight: 700,
-        fontSize: 22,
-        letterSpacing: 3,
-        padding: '6px 16px',
-        borderRadius: 4,
-        background: 'rgba(21,21,19,0.85)',
+        fontSize: 16,
+        padding: '10px 18px',
+        borderRadius: 999,
+        background: COLORS.brass,
         pointerEvents: 'none',
         animation: 'stampIn 0.4s cubic-bezier(.2,1.4,.4,1)',
         zIndex: 20,
         whiteSpace: 'nowrap',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
       }}
     >
-      REGISTRADO
+      <Check size={18} strokeWidth={3} color="#000" />
+      <span style={{ color: '#000' }}>Registrado</span>
     </div>
   );
 }
@@ -393,6 +424,22 @@ export default function WorkoutTracker() {
     }
   };
 
+  // Semana actual (lunes a domingo) para los anillos de actividad
+  const weekBounds = (() => {
+    const now = new Date();
+    const dow = now.getDay(); // 0=domingo
+    const diffToMonday = dow === 0 ? 6 : dow - 1;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) };
+  })();
+  const weekEntries = entries.filter((e) => e.date >= weekBounds.start && e.date <= weekBounds.end);
+  const weekDaysTrained = new Set(weekEntries.map((e) => e.date)).size;
+  const weekSets = weekEntries.reduce((sum, e) => sum + e.sets.length, 0);
+  const weekMuscleGroups = new Set(weekEntries.map((e) => e.muscle_group)).size;
+  const SET_GOAL = 15; // meta semanal de series, ajustable
+
   const grouped = entries.reduce((acc, e) => {
     (acc[e.date] = acc[e.date] || []).push(e);
     return acc;
@@ -458,7 +505,7 @@ export default function WorkoutTracker() {
     color: COLORS.chalk,
     borderRadius: 6,
     padding: '10px 12px',
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
     fontSize: 15,
     outline: 'none',
   };
@@ -468,7 +515,7 @@ export default function WorkoutTracker() {
       style={{
         background: COLORS.bg,
         color: COLORS.chalk,
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif",
         minHeight: '100dvh',
         height: '100dvh',
         maxWidth: 480,
@@ -502,7 +549,7 @@ export default function WorkoutTracker() {
             background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 12,
             padding: 20, maxWidth: 340,
           }}>
-            <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 16, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
+            <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 16, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 }}>
               ¿Cambiar el plan del día?
             </div>
             <div style={{ fontSize: 13, lineHeight: 1.5, color: COLORS.chalkDim, marginBottom: 18 }}>
@@ -535,11 +582,14 @@ export default function WorkoutTracker() {
       )}
 
       {/* Header */}
-      <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${COLORS.line}` }}>
-        <div style={{ fontFamily: "'Oswald', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: 1, textTransform: 'uppercase' }}>
+      <div style={{
+        padding: '18px 20px 14px', borderBottom: `1px solid ${COLORS.line}`,
+        background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+      }}>
+        <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontWeight: 700, fontSize: 28, letterSpacing: -0.5 }}>
           Gym<span style={{ color: COLORS.hazard }}>Stats</span>
         </div>
-        <div style={{ fontSize: 12, color: COLORS.chalkDim, marginTop: 2 }}>
+        <div style={{ fontSize: 13, color: COLORS.chalkDim, marginTop: 2 }}>
           {loaded ? `${entries.reduce((sum, e) => sum + e.sets.length, 0)} sets registrados` : 'Cargando…'}
         </div>
       </div>
@@ -548,6 +598,36 @@ export default function WorkoutTracker() {
       <div style={{ flex: 1, padding: 18, overflowY: 'auto' }}>
         {tab === 'registrar' && (
           <div>
+            {!photoPreview && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 16, background: COLORS.surface,
+                borderRadius: 20, padding: '16px 18px', marginBottom: 16, border: `1px solid ${COLORS.line}`,
+              }}>
+                <ActivityRings
+                  move={weekDaysTrained / 7}
+                  exercise={weekSets / SET_GOAL}
+                  stand={weekMuscleGroups / MUSCLE_GROUPS.length}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, color: COLORS.chalkDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                    Esta semana
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 4, background: COLORS.hazard }} />
+                    <span style={{ fontSize: 13 }}>{weekDaysTrained} de 7 días</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 4, background: COLORS.brass }} />
+                    <span style={{ fontSize: 13 }}>{weekSets} de {SET_GOAL} series</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 4, background: COLORS.stand }} />
+                    <span style={{ fontSize: 13 }}>{weekMuscleGroups} de {MUSCLE_GROUPS.length} grupos</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {!photoPreview && (
               <button
                 onClick={() => fileInputRef.current && fileInputRef.current.click()}
@@ -567,7 +647,7 @@ export default function WorkoutTracker() {
                 }}
               >
                 <Camera size={40} color={COLORS.brass} />
-                <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 16, letterSpacing: 1, color: COLORS.chalk, textTransform: 'uppercase' }}>
+                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 16, letterSpacing: 1, color: COLORS.chalk, textTransform: 'uppercase' }}>
                   Fotografiá la máquina
                 </div>
                 <div style={{ fontSize: 12 }}>Se detecta el ejercicio automáticamente</div>
@@ -616,7 +696,7 @@ export default function WorkoutTracker() {
                   <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {draft.confidence && (
                       <div style={{ fontSize: 12, color: COLORS.chalkDim }}>
-                        Confianza de detección: <span style={{ color: COLORS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>{draft.confidence}</span>
+                        Confianza de detección: <span style={{ color: COLORS.brass, fontFamily: "'SF Mono', ui-monospace, Menlo, monospace" }}>{draft.confidence}</span>
                       </div>
                     )}
                     <div>
@@ -648,7 +728,7 @@ export default function WorkoutTracker() {
                         {draft.setsList.map((s, i) => (
                           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{
-                              width: 18, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: COLORS.brass, textAlign: 'center',
+                              width: 18, fontFamily: "'SF Mono', ui-monospace, Menlo, monospace", fontSize: 12, color: COLORS.brass, textAlign: 'center',
                             }}>{i + 1}</div>
                             <input
                               style={{ ...inputStyle, flex: 1 }}
@@ -707,7 +787,7 @@ export default function WorkoutTracker() {
                         border: 'none',
                         borderRadius: 8,
                         padding: '12px 16px',
-                        fontFamily: "'Oswald', sans-serif",
+                        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif",
                         fontWeight: 600,
                         fontSize: 15,
                         letterSpacing: 1,
@@ -742,11 +822,11 @@ export default function WorkoutTracker() {
               <div key={date} style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <Calendar size={14} color={COLORS.brass} />
-                  <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 14, textTransform: 'capitalize', letterSpacing: 0.5 }}>
+                  <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 14, textTransform: 'capitalize', letterSpacing: 0.5 }}>
                     {formatDateHuman(date)}
                   </div>
                   <div style={{ flex: 1, height: 1, background: COLORS.line }} />
-                  <div style={{ fontSize: 11, color: COLORS.chalkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div style={{ fontSize: 11, color: COLORS.chalkDim, fontFamily: "'SF Mono', ui-monospace, Menlo, monospace" }}>
                     {Array.from(new Set(grouped[date].map((e) => e.muscle_group))).join(' · ')}
                   </div>
                 </div>
@@ -764,7 +844,7 @@ export default function WorkoutTracker() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {e.sets.map((s, i) => (
                             <span key={i} style={{
-                              fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: COLORS.chalk,
+                              fontFamily: "'SF Mono', ui-monospace, Menlo, monospace", fontSize: 11, color: COLORS.chalk,
                               background: COLORS.surfaceRaised, border: `1px solid ${COLORS.line}`,
                               borderRadius: 4, padding: '2px 6px',
                             }}>
@@ -793,7 +873,7 @@ export default function WorkoutTracker() {
               >
                 <ChevronLeft size={18} color={COLORS.chalkDim} />
               </button>
-              <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 15, letterSpacing: 0.5, textTransform: 'capitalize' }}>
+              <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 15, letterSpacing: 0.5, textTransform: 'capitalize' }}>
                 {monthLabel}
               </div>
               <button
@@ -806,7 +886,7 @@ export default function WorkoutTracker() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
               {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
-                <div key={i} style={{ textAlign: 'center', fontSize: 10, color: COLORS.chalkDim, fontFamily: "'IBM Plex Mono', monospace" }}>{d}</div>
+                <div key={i} style={{ textAlign: 'center', fontSize: 10, color: COLORS.chalkDim, fontFamily: "'SF Mono', ui-monospace, Menlo, monospace" }}>{d}</div>
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
@@ -828,7 +908,7 @@ export default function WorkoutTracker() {
                       borderBottomWidth: plan ? 3 : 1,
                       background: isSelected ? COLORS.hazard : hasEntries ? COLORS.surfaceRaised : 'transparent',
                       color: isSelected ? '#fff' : COLORS.chalk,
-                      fontFamily: "'IBM Plex Mono', monospace",
+                      fontFamily: "'SF Mono', ui-monospace, Menlo, monospace",
                       fontSize: 12,
                       cursor: 'pointer',
                       display: 'flex',
@@ -857,7 +937,7 @@ export default function WorkoutTracker() {
             {selectedCalDate && (
               <div style={{ marginTop: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 13, textTransform: 'capitalize', color: COLORS.chalkDim, letterSpacing: 0.5 }}>
+                  <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 13, textTransform: 'capitalize', color: COLORS.chalkDim, letterSpacing: 0.5 }}>
                     {formatDateHuman(selectedCalDate)}
                   </div>
                 </div>
@@ -897,7 +977,7 @@ export default function WorkoutTracker() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {e.sets.map((s, i) => (
                             <span key={i} style={{
-                              fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: COLORS.chalk,
+                              fontFamily: "'SF Mono', ui-monospace, Menlo, monospace", fontSize: 11, color: COLORS.chalk,
                               background: COLORS.surfaceRaised, border: `1px solid ${COLORS.line}`,
                               borderRadius: 4, padding: '2px 6px',
                             }}>
@@ -972,7 +1052,7 @@ export default function WorkoutTracker() {
 
             {muscleFreq.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
+                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
                   Frecuencia por grupo muscular
                 </div>
                 <ResponsiveContainer width="100%" height={180}>
@@ -989,7 +1069,7 @@ export default function WorkoutTracker() {
 
             {exerciseNames.length > 0 && (
               <div>
-                <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
+                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
                   Evolución de peso
                 </div>
                 <select
@@ -1013,7 +1093,7 @@ export default function WorkoutTracker() {
 
             {activeMuscleGroups.length > 0 && (
               <div style={{ marginTop: 24 }}>
-                <div style={{ fontFamily: "'Oswald', sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
+                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Rounded', system-ui, sans-serif", fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim }}>
                   Evolución por grupo muscular
                 </div>
                 <select
@@ -1098,7 +1178,10 @@ export default function WorkoutTracker() {
       </div>
 
       {/* Bottom nav */}
-      <div style={{ display: 'flex', borderTop: `1px solid ${COLORS.line}`, background: COLORS.surface }}>
+      <div style={{
+        display: 'flex', borderTop: `1px solid ${COLORS.line}`,
+        background: 'rgba(28,28,30,0.78)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+      }}>
         {[
           { key: 'registrar', label: 'Registrar', icon: Plus },
           { key: 'historial', label: 'Historial', icon: Dumbbell },
@@ -1115,8 +1198,8 @@ export default function WorkoutTracker() {
               color: tab === key ? COLORS.hazard : COLORS.chalkDim,
             }}
           >
-            <Icon size={17} />
-            <span style={{ fontSize: 9, fontFamily: "'Oswald', sans-serif", letterSpacing: 0.3, textTransform: 'uppercase' }}>{label}</span>
+            <Icon size={22} strokeWidth={tab === key ? 2.4 : 1.8} />
+            <span style={{ fontSize: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif", letterSpacing: 0 }}>{label}</span>
           </button>
         ))}
       </div>
