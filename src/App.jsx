@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { Camera, Check, X, Plus, Calendar, TrendingUp, Dumbbell, Loader2, ChevronRight, ChevronLeft, Trash2, MessageCircle, Send, Bot, Download, ExternalLink } from 'lucide-react';
+import { Camera, Check, X, Plus, Calendar, TrendingUp, Dumbbell, Loader2, ChevronRight, ChevronLeft, Trash2, MessageCircle, Send, Bot, Download, ExternalLink, ListChecks } from 'lucide-react';
 
 const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core', 'Glúteos', 'Cardio'];
 
@@ -233,10 +233,23 @@ async function analyzePhoto(base64Image) {
   return response.json();
 }
 
+async function analyzeRoutinePhoto(base64Image) {
+  const response = await fetch('/api/routine', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64Image }),
+  });
+  if (!response.ok) throw new Error('No se pudo leer la rutina (' + response.status + ')');
+  return response.json();
+}
+
 export default function WorkoutTracker() {
   const [tab, setTab] = useState('registrar');
   const [entries, setEntries] = useState([]);
   const [dayPlans, setDayPlans] = useState({}); // { 'YYYY-MM-DD': 'Pecho' }
+  const [routines, setRoutines] = useState([]); // [{ id, name, exercises: [{id, name, muscle_group, targetSets, targetReps}] }]
+  const [routineAssignments, setRoutineAssignments] = useState({}); // { 'YYYY-MM-DD': routineId }
+  const [routineProgress, setRoutineProgress] = useState({}); // { 'YYYY-MM-DD': { exerciseId: true } }
   const [loaded, setLoaded] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [pendingConflict, setPendingConflict] = useState(null); // { entry, plannedGroup, detectedGroup }
@@ -254,6 +267,13 @@ export default function WorkoutTracker() {
   const [consultQuery, setConsultQuery] = useState('');
   const [consultLoading, setConsultLoading] = useState(false);
   const [consultHistory, setConsultHistory] = useState([]); // {question, answer, error}
+
+  // constructor de rutinas
+  const [routineBuilderOpen, setRoutineBuilderOpen] = useState(false);
+  const [routineDraft, setRoutineDraft] = useState(null); // { id, name, exercises: [{id, name, muscle_group, targetSets, targetReps}] }
+  const [routinePhotoAnalyzing, setRoutinePhotoAnalyzing] = useState(false);
+  const [routinePhotoError, setRoutinePhotoError] = useState(null);
+  const routineFileInputRef = useRef(null);
 
   // calendario
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -277,6 +297,24 @@ export default function WorkoutTracker() {
     } catch (e) {
       // sin datos guardados todavia
     }
+    try {
+      const rawRoutines = localStorage.getItem('gymstats:routines');
+      if (rawRoutines) setRoutines(JSON.parse(rawRoutines));
+    } catch (e) {
+      // sin datos guardados todavia
+    }
+    try {
+      const rawAssign = localStorage.getItem('gymstats:routineAssignments');
+      if (rawAssign) setRoutineAssignments(JSON.parse(rawAssign));
+    } catch (e) {
+      // sin datos guardados todavia
+    }
+    try {
+      const rawProgress = localStorage.getItem('gymstats:routineProgress');
+      if (rawProgress) setRoutineProgress(JSON.parse(rawProgress));
+    } catch (e) {
+      // sin datos guardados todavia
+    }
     setLoaded(true);
   }, []);
 
@@ -293,6 +331,33 @@ export default function WorkoutTracker() {
     setDayPlans(next);
     try {
       localStorage.setItem('gymstats:dayPlans', JSON.stringify(next));
+    } catch (e) {
+      setStorageError(true);
+    }
+  }, []);
+
+  const persistRoutines = useCallback(async (next) => {
+    setRoutines(next);
+    try {
+      localStorage.setItem('gymstats:routines', JSON.stringify(next));
+    } catch (e) {
+      setStorageError(true);
+    }
+  }, []);
+
+  const persistRoutineAssignments = useCallback(async (next) => {
+    setRoutineAssignments(next);
+    try {
+      localStorage.setItem('gymstats:routineAssignments', JSON.stringify(next));
+    } catch (e) {
+      setStorageError(true);
+    }
+  }, []);
+
+  const persistRoutineProgress = useCallback(async (next) => {
+    setRoutineProgress(next);
+    try {
+      localStorage.setItem('gymstats:routineProgress', JSON.stringify(next));
     } catch (e) {
       setStorageError(true);
     }
@@ -407,6 +472,22 @@ export default function WorkoutTracker() {
     await persist(next);
   };
 
+  // Precarga el formulario de Registrar directamente (sin foto), usado al tocar
+  // "Cargar series" desde el checklist de una rutina en el Calendario.
+  const startManualDraft = (exercise, muscle_group, date) => {
+    setPhotoPreview(null);
+    setPhotoBase64(null);
+    setAnalysisError(null);
+    setDraft({
+      exercise,
+      muscle_group: MUSCLE_GROUPS.includes(muscle_group) ? muscle_group : MUSCLE_GROUPS[0],
+      confidence: null,
+      setsList: [{ weight: '', reps: '' }],
+      date: date || todayISO(),
+    });
+    setTab('registrar');
+  };
+
   const submitConsult = async () => {
     const question = consultQuery.trim();
     if (!question || consultLoading) return;
@@ -422,6 +503,104 @@ export default function WorkoutTracker() {
     } finally {
       setConsultLoading(false);
     }
+  };
+
+  // --- Constructor de rutinas ---
+  const openNewRoutine = () => {
+    setRoutinePhotoError(null);
+    setRoutineDraft({ id: uid(), name: '', exercises: [{ id: uid(), name: '', muscle_group: MUSCLE_GROUPS[0], targetSets: 3, targetReps: 10 }] });
+    setRoutineBuilderOpen(true);
+  };
+
+  const openEditRoutine = (routine) => {
+    setRoutinePhotoError(null);
+    setRoutineDraft(JSON.parse(JSON.stringify(routine)));
+    setRoutineBuilderOpen(true);
+  };
+
+  const closeRoutineBuilder = () => {
+    setRoutineBuilderOpen(false);
+    setRoutineDraft(null);
+    setRoutinePhotoError(null);
+    if (routineFileInputRef.current) routineFileInputRef.current.value = '';
+  };
+
+  const updateRoutineExercise = (index, field, value) => {
+    setRoutineDraft((d) => ({
+      ...d,
+      exercises: d.exercises.map((ex, i) => (i === index ? { ...ex, [field]: value } : ex)),
+    }));
+  };
+
+  const addRoutineExerciseRow = () => {
+    setRoutineDraft((d) => ({
+      ...d,
+      exercises: [...d.exercises, { id: uid(), name: '', muscle_group: MUSCLE_GROUPS[0], targetSets: 3, targetReps: 10 }],
+    }));
+  };
+
+  const removeRoutineExerciseRow = (index) => {
+    setRoutineDraft((d) => ({ ...d, exercises: d.exercises.filter((_, i) => i !== index) }));
+  };
+
+  const handleRoutinePhoto = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setRoutinePhotoError(null);
+    setRoutinePhotoAnalyzing(true);
+    try {
+      const b64 = await fileToBase64(file);
+      const result = await analyzeRoutinePhoto(b64);
+      setRoutineDraft((d) => ({
+        id: d?.id || uid(),
+        name: result.name || d?.name || '',
+        exercises: (result.exercises || []).map((ex) => ({
+          id: uid(),
+          name: ex.name || '',
+          muscle_group: MUSCLE_GROUPS.includes(ex.muscle_group) ? ex.muscle_group : MUSCLE_GROUPS[0],
+          targetSets: Number(ex.targetSets) || 3,
+          targetReps: Number(ex.targetReps) || 10,
+        })),
+      }));
+    } catch (err) {
+      setRoutinePhotoError(err.message || 'No se pudo leer la foto');
+    } finally {
+      setRoutinePhotoAnalyzing(false);
+    }
+  };
+
+  const saveRoutine = async () => {
+    if (!routineDraft || !routineDraft.name.trim()) return;
+    const validExercises = routineDraft.exercises.filter((ex) => ex.name.trim());
+    if (validExercises.length === 0) return;
+    const cleaned = { ...routineDraft, name: routineDraft.name.trim(), exercises: validExercises };
+    const exists = routines.some((r) => r.id === cleaned.id);
+    const next = exists ? routines.map((r) => (r.id === cleaned.id ? cleaned : r)) : [...routines, cleaned];
+    await persistRoutines(next);
+    closeRoutineBuilder();
+  };
+
+  const deleteRoutine = async (id) => {
+    await persistRoutines(routines.filter((r) => r.id !== id));
+    // Des-asignamos esa rutina de cualquier día que la tuviera puesta
+    const nextAssignments = { ...routineAssignments };
+    Object.keys(nextAssignments).forEach((date) => {
+      if (nextAssignments[date] === id) delete nextAssignments[date];
+    });
+    await persistRoutineAssignments(nextAssignments);
+  };
+
+  // --- Asignación y checklist de rutinas en el Calendario ---
+  const assignRoutineToDate = async (dateISO, routineId) => {
+    const next = { ...routineAssignments };
+    if (routineId) next[dateISO] = routineId; else delete next[dateISO];
+    await persistRoutineAssignments(next);
+  };
+
+  const toggleRoutineExerciseDone = async (dateISO, exerciseId) => {
+    const dayProgress = { ...(routineProgress[dateISO] || {}) };
+    dayProgress[exerciseId] = !dayProgress[exerciseId];
+    await persistRoutineProgress({ ...routineProgress, [dateISO]: dayProgress });
   };
 
   // Semana actual (lunes a domingo) para los anillos de actividad
@@ -459,6 +638,9 @@ export default function WorkoutTracker() {
   const cellISO = (day) => `${calYear}-${pad2(calMonthIdx + 1)}-${pad2(day)}`;
   const selectedDayEntries = selectedCalDate ? (grouped[selectedCalDate] || []) : [];
   const selectedDayPlan = selectedCalDate ? dayPlans[selectedCalDate] : null;
+  const selectedRoutineId = selectedCalDate ? routineAssignments[selectedCalDate] : null;
+  const selectedRoutine = selectedRoutineId ? routines.find((r) => r.id === selectedRoutineId) : null;
+  const selectedRoutineProgress = selectedCalDate ? (routineProgress[selectedCalDate] || {}) : {};
   const exportEventData = selectedDayEntries.length > 0
     ? eventDataFromEntries(selectedDayEntries)
     : (selectedDayPlan ? eventDataFromPlan(selectedDayPlan) : null);
@@ -663,22 +845,34 @@ export default function WorkoutTracker() {
               style={{ display: 'none' }}
             />
 
-            {photoPreview && (
+            {(photoPreview || draft) && (
               <div style={{ position: 'relative' }}>
-                <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: `1px solid ${COLORS.line}` }}>
-                  <img src={photoPreview} alt="captura" style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
-                  <StampBadge show={showStamp} />
-                  <button
-                    onClick={resetCapture}
-                    style={{
-                      position: 'absolute', top: 8, right: 8, background: 'rgba(21,21,19,0.75)',
-                      border: `1px solid ${COLORS.line}`, borderRadius: 20, width: 30, height: 30,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                    }}
-                  >
-                    <X size={16} color={COLORS.chalk} />
-                  </button>
-                </div>
+                {photoPreview && (
+                  <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', border: `1px solid ${COLORS.line}` }}>
+                    <img src={photoPreview} alt="captura" style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
+                    <button
+                      onClick={resetCapture}
+                      style={{
+                        position: 'absolute', top: 8, right: 8, background: 'rgba(21,21,19,0.75)',
+                        border: `1px solid ${COLORS.line}`, borderRadius: 20, width: 30, height: 30,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                      }}
+                    >
+                      <X size={16} color={COLORS.chalk} />
+                    </button>
+                  </div>
+                )}
+
+                <StampBadge show={showStamp} />
+
+                {!photoPreview && draft && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, color: COLORS.chalkDim }}>Carga manual</div>
+                    <button onClick={resetCapture} style={{ background: 'none', border: 'none', color: COLORS.chalkDim, fontSize: 12, cursor: 'pointer' }}>
+                      Cancelar
+                    </button>
+                  </div>
+                )}
 
                 {analyzing && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, color: COLORS.brass, fontSize: 14 }}>
@@ -694,7 +888,7 @@ export default function WorkoutTracker() {
                 )}
 
                 {draft && !analyzing && (
-                  <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ marginTop: photoPreview ? 16 : 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {draft.confidence && (
                       <div style={{ fontSize: 12, color: COLORS.chalkDim }}>
                         Confianza de detección: <span style={{ color: COLORS.brass, fontFamily: "'SF Mono', ui-monospace, Menlo, monospace" }}>{draft.confidence}</span>
@@ -962,6 +1156,72 @@ export default function WorkoutTracker() {
                   </select>
                 </div>
 
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, color: COLORS.chalkDim, display: 'block', marginBottom: 4 }}>
+                    Rutina asignada
+                  </label>
+                  <select
+                    style={inputStyle}
+                    value={selectedRoutineId || ''}
+                    onChange={(e) => assignRoutineToDate(selectedCalDate, e.target.value || null)}
+                  >
+                    <option value="">Sin rutina</option>
+                    {routines.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                  {routines.length === 0 && (
+                    <div style={{ fontSize: 11, color: COLORS.chalkDim, marginTop: 6 }}>
+                      Todavía no creaste ninguna rutina. Andá a la pestaña Rutinas.
+                    </div>
+                  )}
+                </div>
+
+                {selectedRoutine && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, color: COLORS.chalkDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                      {selectedRoutine.name}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {selectedRoutine.exercises.map((ex) => {
+                        const done = !!selectedRoutineProgress[ex.id];
+                        return (
+                          <div key={ex.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 10, background: COLORS.surface,
+                            borderRadius: 12, padding: '10px 12px', border: `1px solid ${COLORS.line}`,
+                            opacity: done ? 0.6 : 1,
+                          }}>
+                            <button
+                              onClick={() => toggleRoutineExerciseDone(selectedCalDate, ex.id)}
+                              style={{
+                                width: 24, height: 24, borderRadius: 12, flexShrink: 0,
+                                border: `2px solid ${done ? COLORS.brass : COLORS.chalkDim}`,
+                                background: done ? COLORS.brass : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                              }}
+                            >
+                              {done && <Check size={14} strokeWidth={3} color="#000" />}
+                            </button>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: 600, textDecoration: done ? 'line-through' : 'none' }}>{ex.name}</div>
+                              <div style={{ fontSize: 11, color: COLORS.chalkDim }}>
+                                {ex.muscle_group} · {ex.targetSets}x{ex.targetReps}
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => startManualDraft(ex.name, ex.muscle_group, selectedCalDate)}
+                              style={{
+                                fontSize: 11, background: COLORS.surfaceRaised, border: `1px solid ${COLORS.line}`,
+                                borderRadius: 8, padding: '6px 10px', color: COLORS.chalk, cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Cargar series
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {selectedDayEntries.length === 0 && (
                   <div style={{ fontSize: 13, color: COLORS.chalkDim, marginBottom: 14 }}>No entrenaste este día.</div>
                 )}
@@ -1176,6 +1436,194 @@ export default function WorkoutTracker() {
             </div>
           </div>
         )}
+
+        {tab === 'rutinas' && !routineBuilderOpen && (
+          <div>
+            <button
+              onClick={openNewRoutine}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: COLORS.hazard, border: 'none', borderRadius: 14, padding: '14px 16px',
+                color: '#fff', fontWeight: 600, fontSize: 15, cursor: 'pointer', marginBottom: 16,
+              }}
+            >
+              <Plus size={18} /> Nueva rutina
+            </button>
+
+            {routines.length === 0 && (
+              <div style={{ textAlign: 'center', color: COLORS.chalkDim, padding: '30px 10px', fontSize: 13 }}>
+                Todavía no armaste ninguna rutina. Podés cargarla a mano o sacarle una foto a tu plan de entrenamiento.
+              </div>
+            )}
+
+            {routines.map((r) => {
+              const groupsInRoutine = Array.from(new Set(r.exercises.map((ex) => ex.muscle_group)));
+              return (
+                <div key={r.id} style={{
+                  background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 16,
+                  padding: '14px 16px', marginBottom: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{r.name}</div>
+                      <div style={{ fontSize: 12, color: COLORS.chalkDim, marginTop: 2 }}>
+                        {r.exercises.length} ejercicios · {groupsInRoutine.join(', ')}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        onClick={() => openEditRoutine(r)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: COLORS.chalkDim, fontSize: 12 }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => deleteRoutine(r.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6 }}
+                      >
+                        <Trash2 size={15} color={COLORS.chalkDim} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {r.exercises.map((ex) => (
+                      <span key={ex.id} style={{
+                        fontFamily: "'SF Mono', ui-monospace, Menlo, monospace", fontSize: 11, color: COLORS.chalk,
+                        background: COLORS.surfaceRaised, border: `1px solid ${COLORS.line}`,
+                        borderRadius: 4, padding: '2px 6px',
+                      }}>
+                        {ex.name} · {ex.targetSets}x{ex.targetReps}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === 'rutinas' && routineBuilderOpen && routineDraft && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <button onClick={closeRoutineBuilder} style={{ background: 'none', border: 'none', color: COLORS.chalkDim, fontSize: 14, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                {routines.some((r) => r.id === routineDraft.id) ? 'Editar rutina' : 'Nueva rutina'}
+              </div>
+              <div style={{ width: 60 }} />
+            </div>
+
+            <button
+              onClick={() => routineFileInputRef.current && routineFileInputRef.current.click()}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: COLORS.surface, border: `1px dashed ${COLORS.line}`, borderRadius: 14,
+                padding: '12px 16px', color: COLORS.brass, fontSize: 13, cursor: 'pointer', marginBottom: 16,
+              }}
+            >
+              <Camera size={16} /> {routinePhotoAnalyzing ? 'Leyendo la foto…' : 'Completar desde una foto'}
+            </button>
+            <input
+              ref={routineFileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleRoutinePhoto}
+              style={{ display: 'none' }}
+            />
+            {routinePhotoError && (
+              <div style={{ fontSize: 12, color: COLORS.hazard, marginBottom: 12 }}>{routinePhotoError}</div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: COLORS.chalkDim, display: 'block', marginBottom: 4 }}>Nombre de la rutina</label>
+              <input
+                style={inputStyle}
+                value={routineDraft.name}
+                onChange={(e) => setRoutineDraft({ ...routineDraft, name: e.target.value })}
+                placeholder="Ej: Rutina Push"
+              />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              {routineDraft.exercises.map((ex, i) => (
+                <div key={ex.id} style={{
+                  background: COLORS.surface, border: `1px solid ${COLORS.line}`, borderRadius: 14, padding: 12,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <input
+                      style={{ ...inputStyle, flex: 1 }}
+                      value={ex.name}
+                      onChange={(e) => updateRoutineExercise(i, 'name', e.target.value)}
+                      placeholder="Nombre del ejercicio"
+                    />
+                    <button
+                      onClick={() => removeRoutineExerciseRow(i)}
+                      disabled={routineDraft.exercises.length === 1}
+                      style={{
+                        width: 28, height: 36, background: 'none', border: 'none',
+                        cursor: routineDraft.exercises.length === 1 ? 'default' : 'pointer',
+                        opacity: routineDraft.exercises.length === 1 ? 0.25 : 1,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <X size={15} color={COLORS.chalkDim} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select
+                      style={{ ...inputStyle, flex: 1.4 }}
+                      value={ex.muscle_group}
+                      onChange={(e) => updateRoutineExercise(i, 'muscle_group', e.target.value)}
+                    >
+                      {MUSCLE_GROUPS.map((mg) => <option key={mg} value={mg}>{mg}</option>)}
+                    </select>
+                    <input
+                      style={{ ...inputStyle, flex: 1 }}
+                      type="number" inputMode="numeric" placeholder="Series"
+                      value={ex.targetSets}
+                      onChange={(e) => updateRoutineExercise(i, 'targetSets', e.target.value)}
+                    />
+                    <select
+                      style={{ ...inputStyle, flex: 1 }}
+                      value={ex.targetReps}
+                      onChange={(e) => updateRoutineExercise(i, 'targetReps', e.target.value)}
+                    >
+                      {[15, 12, 10, 8, 6].map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={addRoutineExerciseRow}
+              style={{
+                width: '100%', background: 'none', border: `1px dashed ${COLORS.line}`, borderRadius: 10,
+                color: COLORS.brass, fontSize: 13, padding: '10px 12px', cursor: 'pointer', marginBottom: 16,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Plus size={14} /> Agregar ejercicio
+            </button>
+
+            <button
+              onClick={saveRoutine}
+              disabled={!routineDraft.name.trim() || !routineDraft.exercises.some((ex) => ex.name.trim())}
+              style={{
+                width: '100%',
+                background: routineDraft.name.trim() ? COLORS.hazard : COLORS.hazardDim,
+                color: '#fff', border: 'none', borderRadius: 14, padding: '14px 16px',
+                fontWeight: 600, fontSize: 15,
+                cursor: routineDraft.name.trim() ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <Check size={18} /> Guardar rutina
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bottom nav */}
@@ -1190,6 +1638,7 @@ export default function WorkoutTracker() {
           { key: 'calendario', label: 'Calendario', icon: Calendar },
           { key: 'progreso', label: 'Progreso', icon: TrendingUp },
           { key: 'consultar', label: 'Consultar', icon: MessageCircle },
+          { key: 'rutinas', label: 'Rutinas', icon: ListChecks },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -1200,8 +1649,8 @@ export default function WorkoutTracker() {
               color: tab === key ? COLORS.hazard : COLORS.chalkDim,
             }}
           >
-            <Icon size={22} strokeWidth={tab === key ? 2.4 : 1.8} />
-            <span style={{ fontSize: 10, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif", letterSpacing: 0 }}>{label}</span>
+            <Icon size={19} strokeWidth={tab === key ? 2.4 : 1.8} />
+            <span style={{ fontSize: 9, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif", letterSpacing: 0 }}>{label}</span>
           </button>
         ))}
       </div>
