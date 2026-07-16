@@ -98,6 +98,18 @@ else
   echo FAIL >> "$RESULTS_FILE"
 fi
 
+echo "== logs (esquema logging) =="
+resp=$(req GET "/logs/requests?limit=5" 200)
+LOG_COUNT=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$resp")
+if [ "$LOG_COUNT" -gt 0 ]; then
+  echo "OK   request_logs tiene entradas ($LOG_COUNT)" >&2
+  echo OK >> "$RESULTS_FILE"
+else
+  echo "FAIL request_logs vino vacío (¿corriste la migración add_logging_schema?)" >&2
+  echo FAIL >> "$RESULTS_FILE"
+fi
+req GET "/logs/errors?limit=5" 200 > /dev/null
+
 echo "== cleanup =="
 req DELETE "/routines/$ROUTINE_ID" 204 > /dev/null
 

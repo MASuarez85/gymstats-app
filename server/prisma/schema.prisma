@@ -3,12 +3,14 @@
 // de las claves que antes se guardaban en el navegador (ver README del repo).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public", "logging"]
 }
 
 model User {
@@ -24,6 +26,7 @@ model User {
   routineProgress    RoutineProgress[]
 
   @@map("users")
+  @@schema("public")
 }
 
 model Entry {
@@ -40,6 +43,7 @@ model Entry {
   @@index([userId, date])
   @@index([userId, exercise])
   @@map("entries")
+  @@schema("public")
 }
 
 model EntrySet {
@@ -52,6 +56,7 @@ model EntrySet {
   entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@map("entry_sets")
+  @@schema("public")
 }
 
 // Grupo muscular planificado para un día puntual (calendario).
@@ -65,6 +70,7 @@ model DayPlan {
 
   @@unique([userId, date])
   @@map("day_plans")
+  @@schema("public")
 }
 
 model Routine {
@@ -78,6 +84,7 @@ model Routine {
 
   @@index([userId])
   @@map("routines")
+  @@schema("public")
 }
 
 model RoutineExercise {
@@ -93,6 +100,7 @@ model RoutineExercise {
   progress RoutineProgress[]
 
   @@map("routine_exercises")
+  @@schema("public")
 }
 
 // Rutina asignada a una fecha puntual del calendario.
@@ -107,6 +115,7 @@ model RoutineAssignment {
 
   @@unique([userId, date])
   @@map("routine_assignments")
+  @@schema("public")
 }
 
 // Checklist de progreso: qué ejercicios de la rutina asignada ya se hicieron ese día.
@@ -122,4 +131,41 @@ model RoutineProgress {
 
   @@unique([userId, date, exerciseId])
   @@map("routine_progress")
+  @@schema("public")
+}
+
+// --- Esquema "logging": separado del resto de los datos de la app para
+// trazabilidad y diagnóstico (requests y errores), sin mezclarse con las
+// tablas de negocio de arriba.
+
+model RequestLog {
+  id         String   @id @default(uuid())
+  requestId  String   @map("request_id")
+  method     String
+  path       String
+  statusCode Int      @map("status_code")
+  durationMs Int      @map("duration_ms")
+  userId     String?  @map("user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("request_logs")
+  @@schema("logging")
+}
+
+model ErrorLog {
+  id        String   @id @default(uuid())
+  requestId String?  @map("request_id")
+  source    String // 'http' | 'anthropic' | otros orígenes futuros
+  message   String
+  stack     String?
+  context   Json?
+  userId    String?  @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([source])
+  @@map("error_logs")
+  @@schema("logging")
 }

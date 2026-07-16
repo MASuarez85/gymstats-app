@@ -7,7 +7,7 @@ API en Node.js (Fastify) + PostgreSQL (Prisma) + Redis (cache). Reemplaza el `lo
 1. `cd server && npm install`
 2. Copiá `.env.example` a `.env` y completá `DATABASE_URL` (podés levantar Postgres local con Docker: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gymstats postgres:16`), `ANTHROPIC_API_KEY`, `JWT_SECRET`, `APPLE_BUNDLE_ID` y `REDIS_URL`.
 3. Redis local con Docker: `docker run -d -p 6379:6379 redis:7`. Si no lo levantás, el server igual arranca y funciona — simplemente no cachea nada (lo vas a ver en el log: `[redis] ...`).
-4. `npx prisma migrate dev --name init` — crea las tablas.
+4. `npx prisma migrate dev --name init` (si ya lo habías corrido antes, ahora hace falta una migración nueva: `npx prisma migrate dev --name add_logging_schema`, ver sección de logging más abajo) — crea las tablas.
 5. `npm run dev` — levanta el servidor en `http://localhost:3001` (o el `PORT` que hayas puesto).
 
 `GET /health` debería devolver `{"ok":true,"redis":"connected"}` (o `"unavailable"` si no levantaste Redis).
@@ -22,6 +22,17 @@ Patrón cache-aside, implementado en `src/lib/cache.js`:
 
 Las tres respuestas de `/ai/*` incluyen un campo `_cached: true|false` para poder verificar fácilmente si vino de cache o de una llamada real.
 
+## Logging y trazabilidad
+
+Los requests y errores se guardan en Postgres, en un **esquema separado** (`logging`) del esquema `public` donde vive el resto de los datos — así las tablas de negocio (entries, rutinas, etc.) no se mezclan con las de diagnóstico. Esto usa la feature `multiSchema` de Prisma (`prisma/schema.prisma`), que crea el esquema `logging` solo con correr la migración, sin pasos manuales en Postgres.
+
+- `request_logs` (esquema `logging`): un row por cada request — método, path, status code, duración, usuario, timestamp. Se guarda automáticamente vía un hook `onResponse` en `src/index.js`.
+- `error_logs` (esquema `logging`): errores no manejados por las rutas (`setErrorHandler` en `src/index.js`) y errores específicos de las llamadas a Anthropic (capturados en `src/routes/ai.js`), con mensaje, stack trace y contexto.
+
+Ambas tablas se escriben "fire and forget" (`src/lib/log.js`): si guardar el log falla, no rompe ni frena la respuesta real, solo avisa por consola.
+
+Para consultarlos sin entrar directo a la base: `GET /logs/requests?limit=50` y `GET /logs/errors?limit=50` (mismo auth que el resto de la API).
+
 ## Endpoints
 
 Todos menos `/auth/apple` y `/health` requieren el header `Authorization: Bearer <token>` (el token lo devuelve `/auth/apple`).
@@ -35,6 +46,7 @@ Todos menos `/auth/apple` y `/health` requieren el header `Authorization: Bearer
 - `POST /ai/vision` — body `{ image }` (base64), igual que el viejo `api/vision.js`
 - `POST /ai/consult` — body `{ question }`, igual que el viejo `api/consult.js`
 - `POST /ai/routine` — body `{ image }`, igual que el viejo `api/routine.js`
+- `GET /logs/requests` / `GET /logs/errors` — query opcional `?limit=` (default 50, máximo 200)
 
 ## Deploy (Railway, recomendado para arrancar)
 

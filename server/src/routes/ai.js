@@ -2,6 +2,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { analyzeVisionPhoto, answerConsult, analyzeRoutinePhoto } from '../lib/anthropic.js';
 import { withCache } from '../lib/cache.js';
 import { sha256 } from '../lib/hash.js';
+import { logError } from '../lib/log.js';
 
 const DAY = 60 * 60 * 24;
 const PHOTO_TTL = 30 * DAY; // el ejercicio que hace una máquina no cambia de un día a otro
@@ -20,6 +21,7 @@ export default async function aiRoutes(app) {
       const { value, cached } = await withCache(key, PHOTO_TTL, () => analyzeVisionPhoto(image));
       return reply.send({ ...value, _cached: cached });
     } catch (err) {
+      logError({ requestId: String(request.id), source: 'anthropic', message: err.message, stack: err.stack, context: { route: '/ai/vision' }, userId: request.userId });
       return reply.code(err.status || 500).send({ error: err.message });
     }
   });
@@ -35,6 +37,7 @@ export default async function aiRoutes(app) {
       const { value: answer, cached } = await withCache(key, CONSULT_TTL, () => answerConsult(question));
       return reply.send({ answer, _cached: cached });
     } catch (err) {
+      logError({ requestId: String(request.id), source: 'anthropic', message: err.message, stack: err.stack, context: { route: '/ai/consult' }, userId: request.userId });
       return reply.code(err.status || 500).send({ error: err.message });
     }
   });
@@ -47,6 +50,7 @@ export default async function aiRoutes(app) {
       const { value, cached } = await withCache(key, PHOTO_TTL, () => analyzeRoutinePhoto(image));
       return reply.send({ ...value, _cached: cached });
     } catch (err) {
+      logError({ requestId: String(request.id), source: 'anthropic', message: err.message, stack: err.stack, context: { route: '/ai/routine' }, userId: request.userId });
       return reply.code(err.status || 500).send({ error: err.message });
     }
   });
