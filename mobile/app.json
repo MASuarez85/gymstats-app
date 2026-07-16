@@ -5,9 +5,12 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.tuusuario.gymstats",
+      "buildNumber": "1",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "GymStats usa la cámara para identificar el ejercicio a partir de una foto de la máquina."

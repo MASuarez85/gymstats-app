@@ -1,4 +1,4 @@
-# GymStats — App nativa (Fase 3)
+# GymStats — App nativa (Fases 3 y 4)
 
 App iOS con Expo (React Native). Consume el backend de `server/` (Fases 1 y 2) en vez de `localStorage`.
 
@@ -36,5 +36,70 @@ Sign in with Apple y la publicación en el App Store requieren una cuenta de App
 
 - Exportar a Calendario de iPhone / Google Calendar (la web lo tenía, acá no).
 - Cola de escrituras pendientes para cuando no hay señal (hoy solo la lectura es resiliente offline).
-- Reemplazar el ícono/splash placeholder de Expo por los definitivos.
-- Build de producción con EAS y submit a TestFlight (Fase 4).
+
+## Fase 4: build y publicación
+
+Esta parte no la puedo hacer yo desde acá — son todas cosas que requieren tu cuenta de Apple, tu cuenta de Expo, y pagos reales. Te dejo la guía completa.
+
+### 1. Cuenta de Apple Developer Program
+
+Andá a [developer.apple.com/programs](https://developer.apple.com/programs) y anotate (u$s 99/año). Sin esto no se puede firmar un build para dispositivo real ni publicar en el App Store. Puede tardar unas horas en aprobarse.
+
+### 2. Elegir el bundle identifier real
+
+Ahora mismo `app.json` tiene `com.tuusuario.gymstats` como placeholder. Elegí el definitivo (formato reverso de dominio, ej. `com.chino.gymstats`) y actualizalo en dos lugares:
+
+- `mobile/app.json` → `expo.ios.bundleIdentifier`
+- `server/.env` (y la variable de entorno del deploy en Railway) → `APPLE_BUNDLE_ID`, tiene que ser exactamente el mismo valor, porque el backend valida el token de Apple contra ese bundle id.
+
+### 3. Cuenta de Expo (EAS) — gratis
+
+Creá una cuenta en [expo.dev](https://expo.dev/signup). Después, en tu terminal:
+
+```bash
+cd mobile
+npm install -g eas-cli
+eas login
+eas init
+```
+
+`eas init` linkea el proyecto a tu cuenta y le agrega un `projectId` a `app.json` (no lo puse yo porque se genera al vincular tu cuenta real).
+
+### 4. Primer build de prueba (recomendado antes del build final)
+
+```bash
+eas build --platform ios --profile preview
+```
+
+Esto arma un build standalone (no depende de Metro/tu compu) que podés instalar directo en tu iPhone desde el link que te da EAS al terminar — ahí sí vas a poder probar **Sign in with Apple de verdad**, algo que Expo Go no permite. Usá este build para confirmar que todo el flujo real funciona antes de ir al build de producción.
+
+### 5. Build de producción
+
+```bash
+eas build --platform ios --profile production
+```
+
+La primera vez, EAS te va a preguntar si querés que gestione las credenciales de firma (certificados, provisioning profile) — dejalo, es la opción recomendada, evita tener que hacerlo a mano en Xcode.
+
+### 6. Subir a App Store Connect
+
+```bash
+eas submit -p ios --latest
+```
+
+Te va a pedir loguearte con tu Apple ID (o un API key de App Store Connect, que EAS puede generar). Esto sube el build para que aparezca en TestFlight.
+
+### 7. Completar la ficha en App Store Connect
+
+Entrá a [appstoreconnect.apple.com](https://appstoreconnect.apple.com) y completá:
+
+- Nombre, descripción, categoría.
+- **Política de privacidad**: usá el contenido de `mobile/PRIVACY.md` — subilo a algún lugar público (una página simple de GitHub Pages alcanza) y completá el email de contacto real antes de publicarla. Apple pide la URL en la ficha de la app.
+- Cuestionario de privacidad ("App Privacy"): basate en lo mismo que dice `PRIVACY.md` (identificador de Apple para login, datos de entrenamiento, fotos enviadas a un proveedor de IA para análisis).
+- Capturas de pantalla: sacalas del build de preview corriendo en tu iPhone o en el simulador.
+- Testers de TestFlight: agregá tu propio Apple ID como tester interno para probarla instalada "de verdad" antes de mandarla a revisión pública (si es que la vas a hacer pública — para uso 100% personal, alcanza con quedarte en TestFlight interno, sin publicarla en el store).
+
+### Qué reemplazar antes de ir a producción
+
+- El ícono (`mobile/assets/icon.png`) es un placeholder que armé yo (una mancuerna simple con los colores de la app) — reemplazalo si querés algo más elaborado.
+- El email de contacto en `mobile/PRIVACY.md` (tiene un placeholder `[tu-email-de-contacto@ejemplo.com]`).
