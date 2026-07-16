@@ -34,6 +34,22 @@ export async function loginWithApple(identityToken) {
   return data;
 }
 
+// Login de prueba, sin pasar por Apple — pega contra /auth/dev, que solo existe
+// en el backend si tenés ALLOW_DEV_AUTH=true en su .env. Sirve para probar el
+// resto de la app en Expo Go, donde Sign in with Apple no puede funcionar de
+// verdad (necesita un build nativo propio). No usar esto en producción.
+export async function loginDev() {
+  const res = await fetch(`${API_URL}/auth/dev`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'dev@localhost' }),
+  });
+  if (!res.ok) throw new Error('No se pudo iniciar sesión de prueba (¿está ALLOW_DEV_AUTH=true en el server?)');
+  const data = await res.json();
+  await setToken(data.token);
+  return data;
+}
+
 async function request(path, { method = 'GET', body } = {}) {
   const token = await getToken();
   const res = await fetch(`${API_URL}${path}`, {

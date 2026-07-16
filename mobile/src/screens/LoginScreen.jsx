@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { loginWithApple } from '../api/client';
+import { loginWithApple, loginDev } from '../api/client';
 import { COLORS } from '../theme/colors';
 
 // Única pantalla antes de loguearse. La app es de uso personal, así que el único
@@ -9,6 +10,7 @@ import { COLORS } from '../theme/colors';
 // passwords propios para un solo usuario).
 export default function LoginScreen({ onLoggedIn }) {
   const [error, setError] = useState(null);
+  const [devLoading, setDevLoading] = useState(false);
 
   const handlePress = async () => {
     setError(null);
@@ -28,8 +30,24 @@ export default function LoginScreen({ onLoggedIn }) {
     }
   };
 
+  // Solo para desarrollo: Sign in with Apple no puede funcionar dentro de Expo Go
+  // (necesita el bundle id y entitlement reales de un build nativo propio). Este
+  // botón permite probar el resto de la app mientras tanto.
+  const handleDevPress = async () => {
+    setError(null);
+    setDevLoading(true);
+    try {
+      await loginDev();
+      onLoggedIn();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDevLoading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>
         Gym<Text style={{ color: COLORS.hazard }}>Stats</Text>
       </Text>
@@ -41,7 +59,15 @@ export default function LoginScreen({ onLoggedIn }) {
         onPress={handlePress}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+
+      <TouchableOpacity onPress={handleDevPress} disabled={devLoading} style={styles.devButton}>
+        {devLoading ? (
+          <ActivityIndicator color={COLORS.chalkDim} size="small" />
+        ) : (
+          <Text style={styles.devButtonText}>Entrar con cuenta de prueba (dev)</Text>
+        )}
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 }
 
@@ -50,4 +76,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 34, fontWeight: '700', color: COLORS.chalk, letterSpacing: -0.5 },
   button: { width: 240, height: 48 },
   error: { color: COLORS.hazard, fontSize: 13 },
+  devButton: { marginTop: 8, padding: 8 },
+  devButtonText: { color: COLORS.chalkDim, fontSize: 12, textDecorationLine: 'underline' },
 });

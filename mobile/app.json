@@ -13,6 +13,6 @@
         "NSCameraUsageDescription": "GymStats usa la cámara para identificar el ejercicio a partir de una foto de la máquina."
       }
     },
-    "plugins": ["expo-apple-authentication", "expo-camera"]
+    "plugins": ["expo-apple-authentication"]
   }
 }
