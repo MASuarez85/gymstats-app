@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "GymStats",
+    "slug": "gymstats",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tuusuario.gymstats",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "GymStats usa la cámara para identificar el ejercicio a partir de una foto de la máquina."
+      }
+    },
+    "plugins": ["expo-apple-authentication", "expo-camera"]
+  }
+}
