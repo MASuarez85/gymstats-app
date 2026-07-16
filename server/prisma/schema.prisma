@@ -1,0 +1,125 @@
+// Schema de Postgres para GymStats.
+// Reemplaza el localStorage del frontend original: cada tabla espeja una
+// de las claves que antes se guardaban en el navegador (ver README del repo).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  appleUserId   String   @unique @map("apple_user_id")
+  email         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  entries            Entry[]
+  dayPlans           DayPlan[]
+  routines           Routine[]
+  routineAssignments RoutineAssignment[]
+  routineProgress    RoutineProgress[]
+
+  @@map("users")
+}
+
+model Entry {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  exercise    String
+  muscleGroup String   @map("muscle_group")
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sets EntrySet[]
+
+  @@index([userId, date])
+  @@index([userId, exercise])
+  @@map("entries")
+}
+
+model EntrySet {
+  id      String @id @default(uuid())
+  entryId String @map("entry_id")
+  weight  Float
+  reps    Int
+  order   Int
+
+  entry Entry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@map("entry_sets")
+}
+
+// Grupo muscular planificado para un día puntual (calendario).
+model DayPlan {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  date        DateTime @db.Date
+  muscleGroup String   @map("muscle_group")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("day_plans")
+}
+
+model Routine {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  name   String
+
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercises RoutineExercise[]
+  assignments RoutineAssignment[]
+
+  @@index([userId])
+  @@map("routines")
+}
+
+model RoutineExercise {
+  id          String @id @default(uuid())
+  routineId   String @map("routine_id")
+  name        String
+  muscleGroup String @map("muscle_group")
+  targetSets  Int    @map("target_sets")
+  targetReps  Int    @map("target_reps")
+  order       Int
+
+  routine  Routine            @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  progress RoutineProgress[]
+
+  @@map("routine_exercises")
+}
+
+// Rutina asignada a una fecha puntual del calendario.
+model RoutineAssignment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  date      DateTime @db.Date
+  routineId String   @map("routine_id")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@map("routine_assignments")
+}
+
+// Checklist de progreso: qué ejercicios de la rutina asignada ya se hicieron ese día.
+model RoutineProgress {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  date       DateTime @db.Date
+  exerciseId String   @map("exercise_id")
+  done       Boolean  @default(true)
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise RoutineExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date, exerciseId])
+  @@map("routine_progress")
+}
