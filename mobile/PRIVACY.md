@@ -23,8 +23,8 @@ Los datos de entrenamiento, rutinas y planes se guardan en una base de datos pri
 
 ## Tus derechos
 
-Podés pedir que se borren tus datos de entrenamiento y tu cuenta en cualquier momento, escribiendo a **[tu-email-de-contacto@ejemplo.com]**.
+Podés pedir que se borren tus datos de entrenamiento y tu cuenta en cualquier momento, escribiendo a **masuarez85@gmail.com**.
 
 ## Contacto
 
-Para preguntas sobre esta política, escribí a **[tu-email-de-contacto@ejemplo.com]**.
+Para preguntas sobre esta política, escribí a **masuarez85@gmail.com**.
