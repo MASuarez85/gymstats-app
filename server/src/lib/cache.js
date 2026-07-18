@@ -2,12 +2,17 @@
 // las funciones siguen andando calculando todo en el momento, solo que sin cache.
 import { redis } from './redis.js';
 
-let triedConnect = false;
+let lastAttemptAt = 0;
+const RETRY_COOLDOWN_MS = 15_000; // si falla, no reintenta en cada request — como mucho cada 15s
 
+// Antes esto solo probaba conectar una vez por vida del proceso: si el primer
+// intento fallaba (ej: Redis todavía arrancando en Railway), quedaba sin cache
+// hasta el próximo redeploy manual. Con el cooldown se auto-recupera solo.
 async function ensureConnected() {
   if (redis.status === 'ready') return true;
-  if (triedConnect) return redis.status === 'ready';
-  triedConnect = true;
+  const now = Date.now();
+  if (now - lastAttemptAt < RETRY_COOLDOWN_MS) return false;
+  lastAttemptAt = now;
   try {
     await redis.connect();
     return true;

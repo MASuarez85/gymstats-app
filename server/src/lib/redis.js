@@ -9,7 +9,11 @@ export const redis = new Redis(REDIS_URL, {
   maxRetriesPerRequest: 1,
   retryStrategy: () => null, // no reintentar solo en el fondo; si falla, seguimos sin cache
   enableOfflineQueue: false,
-  connectTimeout: 2000,
+  connectTimeout: 5000,
+  // Railway (y otros PaaS) exponen la red privada entre servicios solo por IPv6
+  // (hostnames *.railway.internal). family: 0 le pide a Node que pruebe IPv4 y
+  // IPv6 (dual stack) en vez de forzar IPv4, que es lo que rompía la conexión ahí.
+  family: 0,
 });
 
 redis.on('error', (err) => {
