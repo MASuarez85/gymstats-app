@@ -11,6 +11,7 @@ import routineAssignmentRoutes from './routes/routineAssignments.js';
 import routineProgressRoutes from './routes/routineProgress.js';
 import aiRoutes from './routes/ai.js';
 import logRoutes from './routes/logs.js';
+import profileRoutes from './routes/profile.js';
 import { checkRedisHealth } from './lib/cache.js';
 import { logRequest, logError } from './lib/log.js';
 
@@ -66,6 +67,7 @@ await app.register(routineAssignmentRoutes);
 await app.register(routineProgressRoutes);
 await app.register(aiRoutes);
 await app.register(logRoutes);
+await app.register(profileRoutes);
 
 const port = Number(process.env.PORT) || 3001;
 app.listen({ port, host: '0.0.0.0' }).catch((err) => {

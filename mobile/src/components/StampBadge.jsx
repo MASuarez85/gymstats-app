@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { Animated, View, Text } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 // Insignia "Registrado" que aparece al guardar un set. La versión web usaba una
 // animación CSS con @keyframes; acá se hace lo mismo con Animated (scale + fade).
 export default function StampBadge({ show }) {
+  const { COLORS } = useTheme();
   const scale = useRef(new Animated.Value(1.8)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 

@@ -2,12 +2,14 @@ import { useState, useRef } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bot, Send } from 'lucide-react-native';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { consultAI } from '../api/client';
 
 // Portado de la pestaña "consultar" de App.jsx: chat simple contra /ai/consult
 // (respuestas cacheadas en Redis del lado del backend si la pregunta se repite).
 export default function ConsultarScreen() {
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]); // [{question, answer, error}]
@@ -33,7 +35,7 @@ export default function ConsultarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
         <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.content}>
           {history.length === 0 && (
@@ -83,49 +85,50 @@ export default function ConsultarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  content: { padding: 18, paddingBottom: 12 },
-  emptyState: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 10 },
-  emptyText: { textAlign: 'center', color: COLORS.chalkDim, fontSize: 13 },
-  emptyExample: { marginTop: 6, fontSize: 12, fontStyle: 'italic', color: COLORS.chalkDim, textAlign: 'center' },
-  questionBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: COLORS.hazardDim,
-    color: COLORS.chalk,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    fontSize: 13,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  answerBubble: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    borderRadius: 10,
-    padding: 12,
-  },
-  answerText: { fontSize: 13, lineHeight: 19, color: COLORS.chalk },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 18,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.line,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    color: COLORS.chalk,
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-  },
-  sendButton: { width: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { padding: 18, paddingBottom: 12 },
+    emptyState: { alignItems: 'center', paddingVertical: 30, paddingHorizontal: 10 },
+    emptyText: { textAlign: 'center', color: COLORS.chalkDim, fontSize: 13 },
+    emptyExample: { marginTop: 6, fontSize: 12, fontStyle: 'italic', color: COLORS.chalkDim, textAlign: 'center' },
+    questionBubble: {
+      alignSelf: 'flex-end',
+      backgroundColor: COLORS.hazardDim,
+      color: COLORS.chalk,
+      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      fontSize: 13,
+      marginBottom: 8,
+      overflow: 'hidden',
+    },
+    answerBubble: {
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+      borderRadius: 10,
+      padding: 12,
+    },
+    answerText: { fontSize: 13, lineHeight: 19, color: COLORS.chalk },
+    inputRow: {
+      flexDirection: 'row',
+      gap: 8,
+      padding: 18,
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.line,
+    },
+    input: {
+      flex: 1,
+      backgroundColor: COLORS.surfaceRaised,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+      color: COLORS.chalk,
+      borderRadius: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      fontSize: 15,
+    },
+    sendButton: { width: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  });

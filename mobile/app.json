@@ -4,18 +4,29 @@
     "slug": "gymstats",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.tuusuario.gymstats",
+      "bundleIdentifier": "com.chino.gymstats",
       "buildNumber": "1",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "GymStats usa la cámara para identificar el ejercicio a partir de una foto de la máquina."
+        "NSCameraUsageDescription": "GymStats usa la cámara para identificar el ejercicio a partir de una foto de la máquina.",
+        "NSFaceIDUsageDescription": "GymStats usa Face ID para desbloquear la app, si activás esa opción en Preferencias.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
-    "plugins": ["expo-apple-authentication"]
+    "plugins": [
+      "expo-apple-authentication",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fefeba3a-b179-4eb8-bbfd-b66a71ca19a4"
+      }
+    },
+    "owner": "sonor2000"
   }
 }

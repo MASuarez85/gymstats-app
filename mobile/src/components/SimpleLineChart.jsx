@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Polyline, Circle, Line } from 'react-native-svg';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 const VIEW_WIDTH = 320; // viewBox fijo; el SVG con width="100%" escala solo al ancho real
 
@@ -8,7 +8,11 @@ const VIEW_WIDTH = 320; // viewBox fijo; el SVG con width="100%" escala solo al 
 // recharts que usaba la web para "evolución de peso". Simplificado: solo
 // muestra la etiqueta del primer y último punto en el eje X (no todas, como
 // hacía recharts) para no saturar de texto en una pantalla chica.
-export default function SimpleLineChart({ data, color = COLORS.hazard, height = 160, valueKey = 'value', labelKey = 'label' }) {
+export default function SimpleLineChart({ data, color, height = 160, valueKey = 'value', labelKey = 'label' }) {
+  const { COLORS } = useTheme();
+  const lineColor = color || COLORS.hazard;
+  const styles = getStyles(COLORS);
+
   if (!data || data.length === 0) {
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
@@ -35,9 +39,9 @@ export default function SimpleLineChart({ data, color = COLORS.hazard, height = 
     <View>
       <Svg viewBox={`0 0 ${VIEW_WIDTH} ${height}`} width="100%" height={height}>
         <Line x1={padding} y1={height - padding} x2={VIEW_WIDTH - padding} y2={height - padding} stroke={COLORS.line} strokeWidth={1} />
-        {points.length > 1 && <Polyline points={polylinePoints} fill="none" stroke={color} strokeWidth={2.5} />}
+        {points.length > 1 && <Polyline points={polylinePoints} fill="none" stroke={lineColor} strokeWidth={2.5} />}
         {points.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={3} fill={color} />
+          <Circle key={i} cx={p.x} cy={p.y} r={3} fill={lineColor} />
         ))}
       </Svg>
       <View style={styles.labelsRow}>
@@ -48,7 +52,8 @@ export default function SimpleLineChart({ data, color = COLORS.hazard, height = 
   );
 }
 
-const styles = StyleSheet.create({
-  labelsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 4 },
-  axisLabel: { fontSize: 10, color: COLORS.chalkDim },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    labelsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingHorizontal: 4 },
+    axisLabel: { fontSize: 10, color: COLORS.chalkDim },
+  });

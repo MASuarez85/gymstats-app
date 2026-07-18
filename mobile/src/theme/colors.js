@@ -13,7 +13,8 @@ export const MUSCLE_COLORS = {
   Cardio: '#64D2FF',
 };
 
-export const COLORS = {
+// Tema oscuro (default histórico de la app, "pizarra de gimnasio").
+export const DARK_COLORS = {
   bg: '#000000',
   surface: '#1C1C1E',
   surfaceRaised: '#2C2C2E',
@@ -25,3 +26,21 @@ export const COLORS = {
   stand: '#0AF6F1',
   line: 'rgba(255,255,255,0.09)',
 };
+
+// Tema claro: mismos roles de color, ajustados para contraste sobre fondo blanco
+// (el brass/stand originales son muy claros para leerse sobre blanco, se oscurecen acá).
+export const LIGHT_COLORS = {
+  bg: '#F2F2F7',
+  surface: '#FFFFFF',
+  surfaceRaised: '#EDEDF2',
+  chalk: '#1C1C1E',
+  chalkDim: '#6E6E73',
+  hazard: '#E11D48',
+  hazardDim: '#FBD5DD',
+  brass: '#4D7C0F',
+  stand: '#0369A1',
+  line: 'rgba(0,0,0,0.09)',
+};
+
+// Compat: código que todavía no pasó por useTheme() sigue viendo el oscuro de siempre.
+export const COLORS = DARK_COLORS;

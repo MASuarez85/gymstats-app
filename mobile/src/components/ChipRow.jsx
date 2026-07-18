@@ -1,9 +1,10 @@
 import { View, Text, TouchableOpacity } from 'react-native';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 // Selector tipo "chips" reusado donde la web usaba <select>: grupo muscular,
 // reps por serie, etc. Más cómodo para tocar con el dedo que un dropdown nativo.
 export default function ChipRow({ options, value, onChange, small }) {
+  const { COLORS } = useTheme();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {options.map((opt) => {

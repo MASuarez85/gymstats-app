@@ -3,12 +3,14 @@ import { Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { loginWithApple, loginDev } from '../api/client';
-import { COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 
 // Única pantalla antes de loguearse. La app es de uso personal, así que el único
 // método de login es Sign in with Apple (requisito de Apple, y evita manejar
 // passwords propios para un solo usuario).
 export default function LoginScreen({ onLoggedIn }) {
+  const { COLORS, resolvedScheme } = useTheme();
+  const styles = getStyles(COLORS);
   const [error, setError] = useState(null);
   const [devLoading, setDevLoading] = useState(false);
 
@@ -53,7 +55,11 @@ export default function LoginScreen({ onLoggedIn }) {
       </Text>
       <AppleAuthentication.AppleAuthenticationButton
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+        buttonStyle={
+          resolvedScheme === 'light'
+            ? AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+            : AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+        }
         cornerRadius={8}
         style={styles.button}
         onPress={handlePress}
@@ -71,11 +77,12 @@ export default function LoginScreen({ onLoggedIn }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24 },
-  title: { fontSize: 34, fontWeight: '700', color: COLORS.chalk, letterSpacing: -0.5 },
-  button: { width: 240, height: 48 },
-  error: { color: COLORS.hazard, fontSize: 13 },
-  devButton: { marginTop: 8, padding: 8 },
-  devButtonText: { color: COLORS.chalkDim, fontSize: 12, textDecorationLine: 'underline' },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: COLORS.bg, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 24 },
+    title: { fontSize: 34, fontWeight: '700', color: COLORS.chalk, letterSpacing: -0.5 },
+    button: { width: 240, height: 48 },
+    error: { color: COLORS.hazard, fontSize: 13 },
+    devButton: { marginTop: 8, padding: 8 },
+    devButtonText: { color: COLORS.chalkDim, fontSize: 12, textDecorationLine: 'underline' },
+  });

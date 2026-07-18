@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, X, Plus, Check } from 'lucide-react-native';
-import { COLORS, MUSCLE_GROUPS } from '../theme/colors';
+import { MUSCLE_GROUPS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
 import { analyzeVisionPhoto } from '../api/client';
 import { todayISO } from '../utils/date';
@@ -49,6 +50,8 @@ function emptyDraft(overrides) {
 
 export default function RegistrarScreen() {
   const { entries, dayPlans, addEntry, setPlanForDate } = useGymDataContext();
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
   const navigation = useNavigation();
   const route = useRoute();
 
@@ -189,7 +192,7 @@ export default function RegistrarScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
       <ConflictModal pendingConflict={pendingConflict} onResolve={resolveConflict} />
 
@@ -348,6 +351,7 @@ export default function RegistrarScreen() {
 }
 
 function StatRow({ color, text }) {
+  const { COLORS } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
@@ -357,6 +361,8 @@ function StatRow({ color, text }) {
 }
 
 function ConflictModal({ pendingConflict, onResolve }) {
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
   if (!pendingConflict) return null;
   return (
     <Modal transparent animationType="fade" visible>
@@ -382,7 +388,8 @@ function ConflictModal({ pendingConflict, onResolve }) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (COLORS) =>
+  StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
   content: { padding: 18, paddingBottom: 40 },
   weekCard: {

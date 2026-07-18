@@ -47,6 +47,7 @@ Todos menos `/auth/apple` y `/health` requieren el header `Authorization: Bearer
 - `POST /ai/consult` — body `{ question }`, igual que el viejo `api/consult.js`
 - `POST /ai/routine` — body `{ image }`, igual que el viejo `api/routine.js`
 - `GET /logs/requests` / `GET /logs/errors` — query opcional `?limit=` (default 50, máximo 200)
+- `GET /profile` / `PUT /profile` — body opcional `{ displayName, height, weight, goal, birthdate }`; devuelve también `trial: { active, subscribed, daysLeft }` (prueba gratuita de 30 días desde el alta, sin billing real todavía)
 
 ## Deploy (Railway, recomendado para arrancar)
 

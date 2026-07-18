@@ -90,6 +90,10 @@ export const getRoutineProgress = () => request('/routine-progress');
 export const toggleRoutineProgress = (date, exerciseId) =>
   request(`/routine-progress/${date}/${exerciseId}`, { method: 'PUT', body: {} });
 
+// --- Perfil de usuario (+ estado de prueba gratuita) ---
+export const getProfile = () => request('/profile');
+export const updateProfile = (fields) => request('/profile', { method: 'PUT', body: fields });
+
 // --- IA (foto → ejercicio, pregunta → respuesta, foto de rutina → lista de ejercicios) ---
 export const analyzeVisionPhoto = (base64Image) => request('/ai/vision', { method: 'POST', body: { image: base64Image } });
 export const analyzeRoutinePhoto = (base64Image) => request('/ai/routine', { method: 'POST', body: { image: base64Image } });

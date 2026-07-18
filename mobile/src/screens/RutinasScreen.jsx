@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, Alert 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Plus, X, Trash2, Camera, Check } from 'lucide-react-native';
-import { COLORS, MUSCLE_GROUPS } from '../theme/colors';
+import { MUSCLE_GROUPS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
 import { analyzeRoutinePhoto } from '../api/client';
 import { uid } from '../utils/date';
@@ -19,6 +20,8 @@ function newExercise() {
 // constructor (a mano o completado desde una foto de un plan de entrenamiento).
 export default function RutinasScreen() {
   const { routines, addRoutine, editRoutine, removeRoutine } = useGymDataContext();
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
 
   const [builderOpen, setBuilderOpen] = useState(false);
   const [draft, setDraft] = useState(null); // { id?, name, exercises: [...] }
@@ -117,7 +120,7 @@ export default function RutinasScreen() {
 
   if (builderOpen && draft) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
+      <SafeAreaView style={styles.screen} edges={[]}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
           <View style={styles.builderHeader}>
             <TouchableOpacity onPress={closeBuilder}>
@@ -207,7 +210,7 @@ export default function RutinasScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <TouchableOpacity onPress={openNew} style={styles.newRoutineButton}>
           <Plus size={18} color="#fff" />
@@ -255,81 +258,82 @@ export default function RutinasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  content: { padding: 18, paddingBottom: 40 },
-  newRoutineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.hazard,
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginBottom: 16,
-  },
-  newRoutineText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  empty: { textAlign: 'center', color: COLORS.chalkDim, paddingVertical: 30, fontSize: 13 },
-  routineCard: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.line, borderRadius: 16, padding: 14, marginBottom: 10 },
-  routineName: { fontSize: 16, fontWeight: '700', color: COLORS.chalk },
-  routineMeta: { fontSize: 12, color: COLORS.chalkDim, marginTop: 2 },
-  exerciseChip: {
-    fontSize: 11,
-    color: COLORS.chalk,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    borderRadius: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    overflow: 'hidden',
-  },
-  builderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.line,
-    borderRadius: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  errorText: { fontSize: 12, color: COLORS.hazard, marginBottom: 12 },
-  label: { fontSize: 12, color: COLORS.chalkDim },
-  input: {
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    color: COLORS.chalk,
-    borderRadius: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    fontSize: 15,
-  },
-  exerciseCard: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.line, borderRadius: 14, padding: 12 },
-  addExerciseButton: {
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.line,
-    borderRadius: 10,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  saveButton: {
-    borderRadius: 14,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { padding: 18, paddingBottom: 40 },
+    newRoutineButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: COLORS.hazard,
+      borderRadius: 14,
+      paddingVertical: 14,
+      marginBottom: 16,
+    },
+    newRoutineText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+    empty: { textAlign: 'center', color: COLORS.chalkDim, paddingVertical: 30, fontSize: 13 },
+    routineCard: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.line, borderRadius: 16, padding: 14, marginBottom: 10 },
+    routineName: { fontSize: 16, fontWeight: '700', color: COLORS.chalk },
+    routineMeta: { fontSize: 12, color: COLORS.chalkDim, marginTop: 2 },
+    exerciseChip: {
+      fontSize: 11,
+      color: COLORS.chalk,
+      backgroundColor: COLORS.surfaceRaised,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+      borderRadius: 4,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+      overflow: 'hidden',
+    },
+    builderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+    photoButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: COLORS.surface,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: COLORS.line,
+      borderRadius: 14,
+      paddingVertical: 12,
+      marginBottom: 16,
+    },
+    errorText: { fontSize: 12, color: COLORS.hazard, marginBottom: 12 },
+    label: { fontSize: 12, color: COLORS.chalkDim },
+    input: {
+      backgroundColor: COLORS.surfaceRaised,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+      color: COLORS.chalk,
+      borderRadius: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      fontSize: 15,
+    },
+    exerciseCard: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.line, borderRadius: 14, padding: 12 },
+    addExerciseButton: {
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: COLORS.line,
+      borderRadius: 10,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginBottom: 16,
+    },
+    saveButton: {
+      borderRadius: 14,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  });

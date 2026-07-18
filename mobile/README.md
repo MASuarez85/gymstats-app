@@ -15,12 +15,19 @@ Las 6 pestañas de la app original están portadas: Registrar, Historial, Calend
 - **Progreso**: gráficos de frecuencia por grupo muscular y evolución de peso — con charts hechos a mano sobre `react-native-svg` (`SimpleBarChart`/`SimpleLineChart`) en vez de una librería de charting nueva, para no repetir los problemas de versiones que tuvimos con otras dependencias.
 - **Consultar**: chat contra `/ai/consult` (se beneficia del cache de Redis del backend si la pregunta se repite).
 - **Rutinas**: lista + constructor (a mano o completado desde una foto).
+- **Menú de usuario**: barra superior persistente (`src/components/AppHeader.jsx`) con avatar (iniciales + color generados en el dispositivo, sin mandar el email a ningún tercero) que abre un menú (`UserMenuModal`) con nombre/email, estado de la prueba gratuita, "Editar perfil" (`ProfileEditModal`: nombre, altura, peso, objetivo, fecha de nacimiento — se guarda en `/profile` del backend) y "Cerrar sesión".
+- **Prueba gratuita de 1 mes**: Calendario, Progreso, Consultar y Rutinas se grisan y muestran un ícono de candado en la barra de tabs 30 días después del alta si no hay suscripción activa. Tocar una pestaña bloqueada no navega — abre `PaywallModal` (Cerrar / Comprar suscripción); "Comprar" abre `SubscriptionScreen`, con el precio (US$20/mes) y un cuadro comparativo gratis vs premium. El botón de suscribirse todavía no cobra de verdad (falta conectar Apple In-App Purchases/StoreKit, próxima fase) — hoy `subscriptionActive` en la base se activa a mano. Para probar el bloqueo sin esperar 30 días: `UPDATE public.users SET trial_started_at = now() - interval '31 days' WHERE apple_user_id = 'dev-user';`
+- **Preferencias** (dentro del menú de usuario → Preferencias, `PreferencesModal`):
+  - **Tema** oscuro / claro / automático (`src/context/ThemeContext.jsx` + `LIGHT_COLORS`/`DARK_COLORS` en `src/theme/colors.js`). Todas las pantallas y componentes leen los colores de `useTheme()` en vez de un import estático, así reaccionan al cambio al toque. Se guarda en el dispositivo (AsyncStorage), no en la cuenta.
+  - **Notificaciones** on/off (`src/context/NotificationsContext.jsx`, `expo-notifications`): recordatorios 100% locales (no hace falta servidor de push) — uno para registrar el primer entrenamiento mientras no haya ninguno, y otro para guardar una rutina una vez que ya entrenaste pero no tenés rutinas. Se cancelan solos apenas dejan de aplicar.
+  - **Face ID** on/off (`expo-local-authentication`): pide Face ID al abrir la app y al volver del background. Se guarda en el dispositivo, no en la cuenta (es una preferencia de seguridad local).
+  - **Conectar con Apple Fitness**: por ahora muestra un aviso de "Próximamente" — la integración real con HealthKit necesita habilitar esa capability en Apple Developer para este App ID, una librería nativa (`react-native-health` o similar) y un nuevo build; queda para una fase aparte.
 
 ## Setup local
 
 1. `cd mobile && npm install`
 2. `npx expo install --fix` — alinea las versiones de las dependencias nativas con el SDK de Expo instalado (las versiones que puse en `package.json` son un punto de partida, esto las corrige si Expo sacó una versión más nueva).
-3. `npx expo install expo-image-picker` — lo usa la pantalla Registrar para sacar la foto de la máquina (no lo pre-cargué en `package.json` para evitar fijar una versión que no coincida con tu SDK, como pasó antes con `expo-sqlite`).
+3. `npx expo install expo-image-picker expo-notifications expo-local-authentication` — no las pre-cargué en `package.json` para evitar fijar una versión que no coincida con tu SDK, como pasó antes con `expo-sqlite`.
 4. Variable de entorno: creá `.env` con
    ```
    EXPO_PUBLIC_API_URL=http://TU_IP_LOCAL:3001

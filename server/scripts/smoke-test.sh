@@ -98,6 +98,18 @@ else
   echo FAIL >> "$RESULTS_FILE"
 fi
 
+echo "== profile =="
+req GET /profile 200 > /dev/null
+resp=$(req PUT /profile 200 '{"displayName":"Smoke Test","height":178,"weight":80,"goal":"Fuerza","birthdate":"1995-05-20"}')
+GOAL=$(jsonval "$resp" goal)
+if [ "$GOAL" = "Fuerza" ]; then
+  echo "OK   profile: PUT guardó goal=Fuerza" >&2
+  echo OK >> "$RESULTS_FILE"
+else
+  echo "FAIL profile: goal esperado 'Fuerza', vino '$GOAL'" >&2
+  echo FAIL >> "$RESULTS_FILE"
+fi
+
 echo "== logs (esquema logging) =="
 resp=$(req GET "/logs/requests?limit=5" 200)
 LOG_COUNT=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$resp")

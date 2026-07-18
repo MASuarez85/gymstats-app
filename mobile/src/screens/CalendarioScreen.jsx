@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react-native';
-import { COLORS, MUSCLE_GROUPS, MUSCLE_COLORS } from '../theme/colors';
+import { MUSCLE_GROUPS, MUSCLE_COLORS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
 import { todayISO, formatDateHuman } from '../utils/date';
 import ChipRow from '../components/ChipRow';
@@ -17,6 +18,8 @@ const pad2 = (n) => String(n).padStart(2, '0');
 // expo-calendar u otra dependencia nueva).
 export default function CalendarioScreen() {
   const navigation = useNavigation();
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
   const { entries, dayPlans, routines, routineAssignments, routineProgress, setPlanForDate, assignRoutineToDate, toggleRoutineExerciseDone } =
     useGymDataContext();
 
@@ -55,7 +58,7 @@ export default function CalendarioScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         <View style={styles.monthHeader}>
           <TouchableOpacity onPress={() => setCalendarMonth(new Date(calYear, calMonthIdx - 1, 1))} style={{ padding: 6 }}>
@@ -218,51 +221,52 @@ export default function CalendarioScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  content: { padding: 18, paddingBottom: 40 },
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  monthLabel: { fontSize: 15, letterSpacing: 0.5, textTransform: 'capitalize', color: COLORS.chalk },
-  weekdayRow: { flexDirection: 'row', marginBottom: 6 },
-  weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 10, color: COLORS.chalkDim },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  cell: {
-    width: `${100 / 7}%`,
-    aspectRatio: 1,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    marginBottom: 4,
-  },
-  entryDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.hazard },
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  selectedDateLabel: { fontSize: 13, textTransform: 'capitalize', color: COLORS.chalkDim, letterSpacing: 0.5, marginBottom: 10 },
-  label: { fontSize: 12, color: COLORS.chalkDim, marginBottom: 4 },
-  routineTitle: { fontSize: 11, color: COLORS.chalkDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
-  exerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-  },
-  checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  loadButton: { backgroundColor: COLORS.surfaceRaised, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
-  entryCard: { backgroundColor: COLORS.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: COLORS.line },
-  setChip: {
-    fontSize: 11,
-    color: COLORS.chalk,
-    backgroundColor: COLORS.surfaceRaised,
-    borderWidth: 1,
-    borderColor: COLORS.line,
-    borderRadius: 4,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    overflow: 'hidden',
-  },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { padding: 18, paddingBottom: 40 },
+    monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+    monthLabel: { fontSize: 15, letterSpacing: 0.5, textTransform: 'capitalize', color: COLORS.chalk },
+    weekdayRow: { flexDirection: 'row', marginBottom: 6 },
+    weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 10, color: COLORS.chalkDim },
+    grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    cell: {
+      width: `${100 / 7}%`,
+      aspectRatio: 1,
+      borderRadius: 8,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2,
+      marginBottom: 4,
+    },
+    entryDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.hazard },
+    legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+    selectedDateLabel: { fontSize: 13, textTransform: 'capitalize', color: COLORS.chalkDim, letterSpacing: 0.5, marginBottom: 10 },
+    label: { fontSize: 12, color: COLORS.chalkDim, marginBottom: 4 },
+    routineTitle: { fontSize: 11, color: COLORS.chalkDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+    exerciseRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: COLORS.surface,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+    },
+    checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+    loadButton: { backgroundColor: COLORS.surfaceRaised, borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10 },
+    entryCard: { backgroundColor: COLORS.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: COLORS.line },
+    setChip: {
+      fontSize: 11,
+      color: COLORS.chalk,
+      backgroundColor: COLORS.surfaceRaised,
+      borderWidth: 1,
+      borderColor: COLORS.line,
+      borderRadius: 4,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+      overflow: 'hidden',
+    },
+  });

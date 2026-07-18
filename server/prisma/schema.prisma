@@ -19,6 +19,18 @@ model User {
   email         String?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  // Perfil editable por el usuario (pantalla "Editar perfil").
+  displayName String?   @map("display_name")
+  height      Float? // cm
+  weight      Float? // kg
+  goal        String? // 'Fuerza' | 'Hipertrofia' | 'Resistencia' | 'Salud general'
+  birthdate   DateTime? @db.Date
+
+  // Prueba gratuita de 1 mes desde el alta; luego se desactivan las pestañas
+  // pagas salvo que subscriptionActive sea true (billing real: fase futura).
+  trialStartedAt     DateTime @default(now()) @map("trial_started_at")
+  subscriptionActive Boolean  @default(false) @map("subscription_active")
+
   entries            Entry[]
   dayPlans           DayPlan[]
   routines           Routine[]

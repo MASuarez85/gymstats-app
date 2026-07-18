@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, MUSCLE_GROUPS } from '../theme/colors';
+import { MUSCLE_GROUPS } from '../theme/colors';
+import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
 import ChipRow from '../components/ChipRow';
 import SimpleBarChart from '../components/SimpleBarChart';
@@ -11,6 +12,8 @@ import SimpleLineChart from '../components/SimpleLineChart';
 // solo cambian los componentes de chart (ver comentarios en SimpleBarChart/SimpleLineChart).
 export default function ProgresoScreen() {
   const { entries } = useGymDataContext();
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
 
   const muscleFreq = MUSCLE_GROUPS.map((mg) => ({
     grupo: mg,
@@ -54,7 +57,7 @@ export default function ProgresoScreen() {
   })();
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={styles.screen} edges={[]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
         {entries.length === 0 && <Text style={styles.empty}>Registrá entrenamientos para ver tu progreso.</Text>}
 
@@ -89,9 +92,10 @@ export default function ProgresoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: COLORS.bg },
-  content: { padding: 18, paddingBottom: 40 },
-  empty: { textAlign: 'center', color: COLORS.chalkDim, paddingVertical: 40, fontSize: 14 },
-  sectionTitle: { fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim },
-});
+const getStyles = (COLORS) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: COLORS.bg },
+    content: { padding: 18, paddingBottom: 40 },
+    empty: { textAlign: 'center', color: COLORS.chalkDim, paddingVertical: 40, fontSize: 14 },
+    sectionTitle: { fontSize: 14, letterSpacing: 0.5, marginBottom: 10, textTransform: 'uppercase', color: COLORS.chalkDim },
+  });
