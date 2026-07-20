@@ -36,8 +36,12 @@ function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+function toLocalISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 
 function formatDateHuman(iso) {
@@ -611,7 +615,7 @@ export default function WorkoutTracker() {
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
-    return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) };
+    return { start: toLocalISO(monday), end: toLocalISO(sunday) };
   })();
   const weekEntries = entries.filter((e) => e.date >= weekBounds.start && e.date <= weekBounds.end);
   const weekDaysTrained = new Set(weekEntries.map((e) => e.date)).size;
