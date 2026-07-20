@@ -1,6 +1,10 @@
 // Helpers de fecha compartidos entre pantallas, portados de la versión web.
+export function toLocalISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISO(new Date());
 }
 
 export function formatDateHuman(iso) {

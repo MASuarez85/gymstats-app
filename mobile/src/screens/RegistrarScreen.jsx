@@ -18,7 +18,7 @@ import { MUSCLE_GROUPS } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
 import { analyzeVisionPhoto } from '../api/client';
-import { todayISO } from '../utils/date';
+import { todayISO, toLocalISO } from '../utils/date';
 import ActivityRings from '../components/ActivityRings';
 import StampBadge from '../components/StampBadge';
 import ChipRow from '../components/ChipRow';
@@ -34,7 +34,7 @@ function getWeekBounds() {
   const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) };
+  return { start: toLocalISO(monday), end: toLocalISO(sunday) };
 }
 
 function emptyDraft(overrides) {
