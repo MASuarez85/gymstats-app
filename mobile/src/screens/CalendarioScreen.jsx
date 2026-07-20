@@ -77,31 +77,35 @@ export default function CalendarioScreen() {
         </View>
 
         <View style={styles.grid}>
-          {calCells.map((day, i) => {
-            if (day === null) return <View key={i} style={styles.cell} />;
-            const iso = cellISO(day);
-            const hasEntries = !!grouped[iso];
-            const plan = dayPlans[iso];
-            const isSelected = selectedDate === iso;
-            const isToday = iso === todayISO();
-            return (
-              <TouchableOpacity
-                key={i}
-                style={[
-                  styles.cell,
-                  {
-                    borderColor: isToday ? COLORS.brass : plan ? MUSCLE_COLORS[plan] : COLORS.line,
-                    borderBottomWidth: plan ? 3 : 1,
-                    backgroundColor: isSelected ? COLORS.hazard : hasEntries ? COLORS.surfaceRaised : 'transparent',
-                  },
-                ]}
-                onPress={() => setSelectedDate(isSelected ? null : iso)}
-              >
-                <Text style={{ color: isSelected ? '#fff' : COLORS.chalk, fontSize: 12 }}>{day}</Text>
-                {hasEntries && !isSelected && <View style={styles.entryDot} />}
-              </TouchableOpacity>
-            );
-          })}
+          {Array.from({ length: Math.ceil(calCells.length / 7) }).map((_, wi) => (
+            <View key={wi} style={styles.weekRow}>
+              {calCells.slice(wi * 7, wi * 7 + 7).map((day, i) => {
+                if (day === null) return <View key={i} style={styles.cell} />;
+                const iso = cellISO(day);
+                const hasEntries = !!grouped[iso];
+                const plan = dayPlans[iso];
+                const isSelected = selectedDate === iso;
+                const isToday = iso === todayISO();
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[
+                      styles.cell,
+                      {
+                        borderColor: isToday ? COLORS.brass : plan ? MUSCLE_COLORS[plan] : COLORS.line,
+                        borderBottomWidth: plan ? 3 : 1,
+                        backgroundColor: isSelected ? COLORS.hazard : hasEntries ? COLORS.surfaceRaised : 'transparent',
+                      },
+                    ]}
+                    onPress={() => setSelectedDate(isSelected ? null : iso)}
+                  >
+                    <Text style={{ color: isSelected ? '#fff' : COLORS.chalk, fontSize: 12 }}>{day}</Text>
+                    {hasEntries && !isSelected && <View style={styles.entryDot} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
         </View>
 
         <View style={styles.legendRow}>
@@ -229,16 +233,16 @@ const getStyles = (COLORS) =>
     monthLabel: { fontSize: 15, letterSpacing: 0.5, textTransform: 'capitalize', color: COLORS.chalk },
     weekdayRow: { flexDirection: 'row', marginBottom: 6 },
     weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 10, color: COLORS.chalkDim },
-    grid: { flexDirection: 'row', flexWrap: 'wrap' },
+    grid: {},
+    weekRow: { flexDirection: 'row', marginBottom: 4 },
     cell: {
-      width: `${100 / 7}%`,
+      flex: 1,
       aspectRatio: 1,
       borderRadius: 8,
       borderWidth: 1,
       alignItems: 'center',
       justifyContent: 'center',
       gap: 2,
-      marginBottom: 4,
     },
     entryDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.hazard },
     legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
