@@ -69,12 +69,18 @@ async function request(path, { method = 'GET', body } = {}) {
 // --- Entries ---
 export const getEntries = () => request('/entries');
 export const createEntry = (entry) => request('/entries', { method: 'POST', body: entry });
+export const createSuperset = (date, exercises) => request('/entries/superset', { method: 'POST', body: { date, exercises } });
+export const updateEntry = (id, patch) => request(`/entries/${id}`, { method: 'PATCH', body: patch });
 export const deleteEntry = (id) => request(`/entries/${id}`, { method: 'DELETE' });
 
-// --- Day plans ---
+// --- Day plans (un día puede tener varios grupos musculares planificados) ---
 export const getDayPlans = () => request('/day-plans');
-export const setDayPlan = (date, muscleGroup) =>
-  request(`/day-plans/${date}`, { method: 'PUT', body: { muscleGroup } });
+export const setDayPlanGroups = (date, muscleGroups) =>
+  request(`/day-plans/${date}`, { method: 'PUT', body: { muscleGroups } });
+export const addDayPlanGroup = (date, muscleGroup) =>
+  request(`/day-plans/${date}/groups`, { method: 'POST', body: { muscleGroup } });
+export const removeDayPlanGroup = (date, muscleGroup) =>
+  request(`/day-plans/${date}/groups/${encodeURIComponent(muscleGroup)}`, { method: 'DELETE' });
 
 // --- Rutinas ---
 export const getRoutines = () => request('/routines');
@@ -96,5 +102,7 @@ export const updateProfile = (fields) => request('/profile', { method: 'PUT', bo
 
 // --- IA (foto → ejercicio, pregunta → respuesta, foto de rutina → lista de ejercicios) ---
 export const analyzeVisionPhoto = (base64Image) => request('/ai/vision', { method: 'POST', body: { image: base64Image } });
+export const submitVisionCorrection = (originalExercise, originalMuscleGroup, correction) =>
+  request('/ai/vision/corrections', { method: 'POST', body: { originalExercise, originalMuscleGroup, correction } });
 export const analyzeRoutinePhoto = (base64Image) => request('/ai/routine', { method: 'POST', body: { image: base64Image } });
 export const consultAI = (question) => request('/ai/consult', { method: 'POST', body: { question } });

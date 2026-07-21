@@ -36,6 +36,7 @@ model User {
   routines           Routine[]
   routineAssignments RoutineAssignment[]
   routineProgress    RoutineProgress[]
+  visionCorrections  VisionCorrection[]
 
   @@map("users")
   @@schema("public")
@@ -48,12 +49,17 @@ model Entry {
   muscleGroup String   @map("muscle_group")
   date        DateTime @db.Date
   createdAt   DateTime @default(now()) @map("created_at")
+  // Comparten blockId dos (o más) entries cargadas como superserie: mismo grupo
+  // muscular, distintas máquinas, en la misma "ronda" de entrenamiento. Null
+  // para un ejercicio suelto, como era antes.
+  blockId     String?  @map("block_id")
 
   user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   sets EntrySet[]
 
   @@index([userId, date])
   @@index([userId, exercise])
+  @@index([userId, blockId])
   @@map("entries")
   @@schema("public")
 }
@@ -71,7 +77,10 @@ model EntrySet {
   @@schema("public")
 }
 
-// Grupo muscular planificado para un día puntual (calendario).
+// Grupo(s) muscular(es) planificado(s) para un día puntual (calendario). Antes
+// era un grupo por día (unique en userId+date); ahora puede haber varias filas
+// para el mismo día, una por grupo muscular, para permitir días de entrenamiento
+// combinados (ej: Pecho + Tríceps).
 model DayPlan {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
@@ -80,7 +89,7 @@ model DayPlan {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, date])
+  @@unique([userId, date, muscleGroup])
   @@map("day_plans")
   @@schema("public")
 }
@@ -143,6 +152,25 @@ model RoutineProgress {
 
   @@unique([userId, date, exerciseId])
   @@map("routine_progress")
+  @@schema("public")
+}
+
+// Correcciones que el usuario hace a mano sobre lo que detectó la IA al
+// fotografiar una máquina (ej: "esto es prensa de pierna, no press de banca").
+// Las últimas correcciones de cada usuario se le pasan como contexto al modelo
+// en el próximo análisis de foto, para que no repita el mismo error.
+model VisionCorrection {
+  id                   String   @id @default(uuid())
+  userId               String   @map("user_id")
+  originalExercise     String   @map("original_exercise")
+  originalMuscleGroup  String   @map("original_muscle_group")
+  correction           String
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("vision_corrections")
   @@schema("public")
 }
 

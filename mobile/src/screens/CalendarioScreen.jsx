@@ -20,7 +20,7 @@ export default function CalendarioScreen() {
   const navigation = useNavigation();
   const { COLORS } = useTheme();
   const styles = getStyles(COLORS);
-  const { entries, dayPlans, routines, routineAssignments, routineProgress, setPlanForDate, assignRoutineToDate, toggleRoutineExerciseDone } =
+  const { entries, dayPlans, routines, routineAssignments, routineProgress, setPlanGroupsForDate, assignRoutineToDate, toggleRoutineExerciseDone } =
     useGymDataContext();
 
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -38,12 +38,24 @@ export default function CalendarioScreen() {
   const calMonthIdx = calendarMonth.getMonth();
   const firstWeekday = new Date(calYear, calMonthIdx, 1).getDay();
   const daysInMonth = new Date(calYear, calMonthIdx + 1, 0).getDate();
-  const calCells = [...Array.from({ length: firstWeekday }).map(() => null), ...Array.from({ length: daysInMonth }).map((_, i) => i + 1)];
+  const prevMonthDays = new Date(calYear, calMonthIdx, 0).getDate();
+  const trailingCount = (7 - ((firstWeekday + daysInMonth) % 7)) % 7;
+  const calCells = [
+    ...Array.from({ length: firstWeekday }).map((_, i) => ({
+      day: prevMonthDays - firstWeekday + 1 + i,
+      monthOffset: -1,
+    })),
+    ...Array.from({ length: daysInMonth }).map((_, i) => ({ day: i + 1, monthOffset: 0 })),
+    ...Array.from({ length: trailingCount }).map((_, i) => ({ day: i + 1, monthOffset: 1 })),
+  ];
   const monthLabel = calendarMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-  const cellISO = (day) => `${calYear}-${pad2(calMonthIdx + 1)}-${pad2(day)}`;
+  const cellISO = (day, monthOffset = 0) => {
+    const d = new Date(calYear, calMonthIdx + monthOffset, day);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  };
 
   const selectedDayEntries = selectedDate ? grouped[selectedDate] || [] : [];
-  const selectedDayPlan = selectedDate ? dayPlans[selectedDate] : null;
+  const selectedDayPlanGroups = selectedDate ? dayPlans[selectedDate] || [] : [];
   const selectedRoutineId = selectedDate ? routineAssignments[selectedDate] : null;
   const selectedRoutine = selectedRoutineId ? routines.find((r) => r.id === selectedRoutineId) : null;
   const selectedRoutineProgress = selectedDate ? routineProgress[selectedDate] || {} : {};
@@ -79,11 +91,12 @@ export default function CalendarioScreen() {
         <View style={styles.grid}>
           {Array.from({ length: Math.ceil(calCells.length / 7) }).map((_, wi) => (
             <View key={wi} style={styles.weekRow}>
-              {calCells.slice(wi * 7, wi * 7 + 7).map((day, i) => {
-                if (day === null) return <View key={i} style={styles.cell} />;
-                const iso = cellISO(day);
+              {calCells.slice(wi * 7, wi * 7 + 7).map((cellData, i) => {
+                const { day, monthOffset } = cellData;
+                const inMonth = monthOffset === 0;
+                const iso = cellISO(day, monthOffset);
                 const hasEntries = !!grouped[iso];
-                const plan = dayPlans[iso];
+                const planGroups = dayPlans[iso] || [];
                 const isSelected = selectedDate === iso;
                 const isToday = iso === todayISO();
                 return (
@@ -92,12 +105,16 @@ export default function CalendarioScreen() {
                     style={[
                       styles.cell,
                       {
-                        borderColor: isToday ? COLORS.brass : plan ? MUSCLE_COLORS[plan] : COLORS.line,
-                        borderBottomWidth: plan ? 3 : 1,
+                        borderColor: isToday ? COLORS.brass : planGroups[0] ? MUSCLE_COLORS[planGroups[0]] : COLORS.line,
+                        borderBottomWidth: planGroups.length ? 3 : 1,
                         backgroundColor: isSelected ? COLORS.hazard : hasEntries ? COLORS.surfaceRaised : 'transparent',
+                        opacity: inMonth ? 1 : 0.35,
                       },
                     ]}
-                    onPress={() => setSelectedDate(isSelected ? null : iso)}
+                    onPress={() => {
+                      if (!inMonth) setCalendarMonth(new Date(calYear, calMonthIdx + monthOffset, 1));
+                      setSelectedDate(isSelected ? null : iso);
+                    }}
                   >
                     <Text style={{ color: isSelected ? '#fff' : COLORS.chalk, fontSize: 12 }}>{day}</Text>
                     {hasEntries && !isSelected && <View style={styles.entryDot} />}
@@ -109,7 +126,7 @@ export default function CalendarioScreen() {
         </View>
 
         <View style={styles.legendRow}>
-          {MUSCLE_GROUPS.filter((mg) => Object.values(dayPlans).includes(mg)).map((mg) => (
+          {MUSCLE_GROUPS.filter((mg) => Object.values(dayPlans).flat().includes(mg)).map((mg) => (
             <View key={mg} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: MUSCLE_COLORS[mg] }} />
               <Text style={{ fontSize: 10, color: COLORS.chalkDim }}>{mg}</Text>
@@ -122,20 +139,16 @@ export default function CalendarioScreen() {
             <Text style={styles.selectedDateLabel}>{formatDateHuman(selectedDate)}</Text>
 
             <View style={{ marginBottom: 14 }}>
-              <Text style={styles.label}>Grupo muscular planificado</Text>
+              <Text style={styles.label}>Grupo(s) muscular(es) planificado(s)</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 <ChipRow
                   small
+                  multi
                   options={MUSCLE_GROUPS}
-                  value={selectedDayPlan}
-                  onChange={(v) => setPlanForDate(selectedDate, v)}
+                  value={selectedDayPlanGroups}
+                  onChange={(groups) => setPlanGroupsForDate(selectedDate, groups)}
                 />
               </View>
-              {selectedDayPlan && (
-                <TouchableOpacity onPress={() => setPlanForDate(selectedDate, null)} style={{ marginTop: 6 }}>
-                  <Text style={{ color: COLORS.chalkDim, fontSize: 11 }}>Quitar plan</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
             <View style={{ marginBottom: 14 }}>

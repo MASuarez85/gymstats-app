@@ -33,8 +33,21 @@ function stripJsonFence(text) {
   return text.replace(/```json|```/g, '').trim();
 }
 
+// Arma el bloque de contexto con correcciones previas del usuario, para que el
+// modelo no repita el mismo error dos veces. `corrections` viene ordenado del
+// más reciente al más viejo; se listan del más viejo al más nuevo para que la
+// última corrección quede más cerca del final del prompt (más peso).
+function buildCorrectionsContext(corrections) {
+  if (!corrections || corrections.length === 0) return '';
+  const lines = [...corrections].reverse().map(
+    (c) => `- Detectaste "${c.originalExercise}" (${c.originalMuscleGroup}) y el usuario corrigió: "${c.correction}"`
+  );
+  return `\n\nCorrecciones que este usuario ya te hizo antes sobre otras fotos (tenelas en cuenta, puede que esta foto sea de una máquina parecida):\n${lines.join('\n')}`;
+}
+
 // Identifica el ejercicio y grupo muscular a partir de una foto de la máquina.
-export async function analyzeVisionPhoto(base64Image) {
+// `corrections`: correcciones previas de este usuario (ver buildCorrectionsContext).
+export async function analyzeVisionPhoto(base64Image, corrections = []) {
   const text = await callAnthropic({
     maxTokens: 300,
     content: [
@@ -43,7 +56,7 @@ export async function analyzeVisionPhoto(base64Image) {
         type: 'text',
         text: `Mirá esta foto de una máquina o elemento de gimnasio. Identificá qué ejercicio se hace ahí y a qué grupo muscular corresponde.
 Devolvé SOLO un objeto JSON, sin texto antes ni después, sin backticks, con esta forma exacta:
-{"exercise": "nombre corto del ejercicio en español", "muscle_group": "uno de estos exactamente: Pecho, Espalda, Piernas, Hombros, Brazos, Core, Glúteos, Cardio", "confidence": "alta, media o baja"}`,
+{"exercise": "nombre corto del ejercicio en español", "muscle_group": "uno de estos exactamente: Pecho, Espalda, Piernas, Hombros, Brazos, Core, Glúteos, Cardio", "confidence": "alta, media o baja"}${buildCorrectionsContext(corrections)}`,
       },
     ],
   });

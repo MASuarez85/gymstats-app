@@ -106,6 +106,26 @@ export function useGymData() {
     return created;
   }, []);
 
+  const addSuperset = useCallback(async (date, exercises) => {
+    const created = await api.createSuperset(date, exercises);
+    setEntries((prev) => {
+      const next = [...created, ...prev];
+      writeCache(CACHE_KEYS.entries, next);
+      return next;
+    });
+    return created;
+  }, []);
+
+  const editEntry = useCallback(async (id, patch) => {
+    const updated = await api.updateEntry(id, patch);
+    setEntries((prev) => {
+      const next = prev.map((e) => (e.id === id ? updated : e));
+      writeCache(CACHE_KEYS.entries, next);
+      return next;
+    });
+    return updated;
+  }, []);
+
   const removeEntry = useCallback(async (id) => {
     await api.deleteEntry(id);
     setEntries((prev) => {
@@ -115,11 +135,34 @@ export function useGymData() {
     });
   }, []);
 
-  // --- Day plans ---
-  const setPlanForDate = useCallback(async (date, muscleGroup) => {
-    await api.setDayPlan(date, muscleGroup);
+  // --- Day plans (varios grupos musculares posibles por día) ---
+  // Reemplaza todo el plan del día por esta lista exacta de grupos.
+  const setPlanGroupsForDate = useCallback(async (date, muscleGroups) => {
+    await api.setDayPlanGroups(date, muscleGroups);
     setDayPlans((prev) => {
-      const next = { ...prev, [date]: muscleGroup };
+      const next = { ...prev, [date]: muscleGroups };
+      if (muscleGroups.length === 0) delete next[date];
+      writeCache(CACHE_KEYS.dayPlans, next);
+      return next;
+    });
+  }, []);
+
+  // Suma un grupo muscular al plan del día sin tocar los que ya había.
+  const addPlanGroupToDate = useCallback(async (date, muscleGroup) => {
+    const { muscleGroups } = await api.addDayPlanGroup(date, muscleGroup);
+    setDayPlans((prev) => {
+      const next = { ...prev, [date]: muscleGroups };
+      writeCache(CACHE_KEYS.dayPlans, next);
+      return next;
+    });
+  }, []);
+
+  // Saca un único grupo muscular del plan del día, dejando el resto.
+  const removePlanGroupFromDate = useCallback(async (date, muscleGroup) => {
+    const { muscleGroups } = await api.removeDayPlanGroup(date, muscleGroup);
+    setDayPlans((prev) => {
+      const next = { ...prev, [date]: muscleGroups };
+      if (muscleGroups.length === 0) delete next[date];
       writeCache(CACHE_KEYS.dayPlans, next);
       return next;
     });
@@ -198,8 +241,12 @@ export function useGymData() {
     syncError,
     refresh,
     addEntry,
+    addSuperset,
+    editEntry,
     removeEntry,
-    setPlanForDate,
+    setPlanGroupsForDate,
+    addPlanGroupToDate,
+    removePlanGroupFromDate,
     addRoutine,
     editRoutine,
     removeRoutine,

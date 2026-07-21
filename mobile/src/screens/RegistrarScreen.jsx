@@ -9,15 +9,16 @@ import {
   Modal,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, X, Plus, Check } from 'lucide-react-native';
+import { Camera, X, Plus, Check, Pencil } from 'lucide-react-native';
 import { MUSCLE_GROUPS } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useGymDataContext } from '../context/GymDataContext';
-import { analyzeVisionPhoto } from '../api/client';
+import { analyzeVisionPhoto, submitVisionCorrection } from '../api/client';
 import { todayISO, toLocalISO } from '../utils/date';
 import ActivityRings from '../components/ActivityRings';
 import StampBadge from '../components/StampBadge';
@@ -49,7 +50,7 @@ function emptyDraft(overrides) {
 }
 
 export default function RegistrarScreen() {
-  const { entries, dayPlans, addEntry, setPlanForDate } = useGymDataContext();
+  const { entries, dayPlans, addEntry, addSuperset, setPlanGroupsForDate, addPlanGroupToDate } = useGymDataContext();
   const { COLORS } = useTheme();
   const styles = getStyles(COLORS);
   const navigation = useNavigation();
@@ -59,9 +60,14 @@ export default function RegistrarScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [draft, setDraft] = useState(null);
+  const [superset, setSuperset] = useState(null); // { exercise, setsList } — segundo ejercicio de la superserie, mismo grupo muscular
   const [showStamp, setShowStamp] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pendingConflict, setPendingConflict] = useState(null); // { entry, plannedGroup, detectedGroup }
+  const [pendingConflict, setPendingConflict] = useState(null); // { payload, plannedGroup, detectedGroup }
+  const [aiResult, setAiResult] = useState(null); // { exercise, muscle_group } tal cual lo devolvió la IA, para poder corregirlo
+  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
+  const [correctionText, setCorrectionText] = useState('');
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
   // Precarga el formulario cuando venís de "Cargar series" en el checklist de
   // una rutina, en la pestaña Calendario (equivalente a startManualDraft en la web).
@@ -91,6 +97,9 @@ export default function RegistrarScreen() {
     setPhotoPreview(null);
     setAnalysisError(null);
     setDraft(null);
+    setSuperset(null);
+    setAiResult(null);
+    setCorrectionText('');
   };
 
   const takePhoto = async () => {
@@ -105,17 +114,22 @@ export default function RegistrarScreen() {
     const asset = result.assets[0];
     setAnalysisError(null);
     setDraft(null);
+    setSuperset(null);
+    setAiResult(null);
+    setCorrectionText('');
     setPhotoPreview(asset.uri);
     setAnalyzing(true);
     try {
       const analysis = await analyzeVisionPhoto(asset.base64);
+      const muscleGroup = MUSCLE_GROUPS.includes(analysis.muscle_group) ? analysis.muscle_group : MUSCLE_GROUPS[0];
       setDraft(
         emptyDraft({
           exercise: analysis.exercise || '',
-          muscle_group: MUSCLE_GROUPS.includes(analysis.muscle_group) ? analysis.muscle_group : MUSCLE_GROUPS[0],
+          muscle_group: muscleGroup,
           confidence: analysis.confidence || 'media',
         })
       );
+      setAiResult({ exercise: analysis.exercise || '', muscle_group: muscleGroup });
     } catch (err) {
       setAnalysisError(err.message || 'Error al analizar la foto');
       setDraft(emptyDraft());
@@ -124,9 +138,26 @@ export default function RegistrarScreen() {
     }
   };
 
+  const submitCorrection = async () => {
+    if (!aiResult || !correctionText.trim()) return;
+    setSubmittingCorrection(true);
+    try {
+      await submitVisionCorrection(aiResult.exercise, aiResult.muscle_group, correctionText.trim());
+      setCorrectionModalOpen(false);
+      setCorrectionText('');
+      Alert.alert('Gracias', 'La vamos a tener en cuenta la próxima vez que analicemos una foto parecida.');
+    } catch (err) {
+      Alert.alert('No se pudo enviar la corrección', err.message);
+    } finally {
+      setSubmittingCorrection(false);
+    }
+  };
+
   const startManualDraft = () => {
     setPhotoPreview(null);
     setAnalysisError(null);
+    setSuperset(null);
+    setAiResult(null);
     setDraft(emptyDraft());
   };
 
@@ -146,11 +177,27 @@ export default function RegistrarScreen() {
     (s) => ({ weight: Number(s.weight), reps: Number(s.reps) })
   );
 
-  const finalizeSave = async (entry, { updatePlan, planGroup } = {}) => {
+  const updateSupersetRow = (index, field, value) => {
+    setSuperset((s) => ({ ...s, setsList: s.setsList.map((row, i) => (i === index ? { ...row, [field]: value } : row)) }));
+  };
+  const addSupersetRow = () => setSuperset((s) => ({ ...s, setsList: [...s.setsList, { weight: '', reps: '' }] }));
+  const removeSupersetRow = (index) => setSuperset((s) => ({ ...s, setsList: s.setsList.filter((_, i) => i !== index) }));
+
+  const validSupersetSets = (superset && superset.setsList ? superset.setsList.filter((s) => s.weight !== '' && s.reps !== '') : []).map(
+    (s) => ({ weight: Number(s.weight), reps: Number(s.reps) })
+  );
+  const hasSuperset = !!(superset && superset.exercise && validSupersetSets.length > 0);
+
+  const finalizeSave = async (payload, { planUpdate } = {}) => {
     setSaving(true);
     try {
-      await addEntry(entry);
-      if (updatePlan) await setPlanForDate(entry.date, planGroup);
+      if (payload.type === 'superset') {
+        await addSuperset(payload.date, payload.exercises);
+      } else {
+        await addEntry(payload.entry);
+      }
+      if (planUpdate && planUpdate.type === 'replace') await setPlanGroupsForDate(payload.date, planUpdate.groups);
+      else if (planUpdate && planUpdate.type === 'add') await addPlanGroupToDate(payload.date, planUpdate.group);
       setShowStamp(true);
       setTimeout(() => setShowStamp(false), 1200);
       setTimeout(resetCapture, 600);
@@ -163,38 +210,58 @@ export default function RegistrarScreen() {
 
   const saveEntry = async () => {
     if (!draft || !draft.exercise || validSets.length === 0) return;
-    const entry = {
-      exercise: draft.exercise,
-      muscleGroup: draft.muscle_group,
-      sets: validSets,
-      date: draft.date,
-    };
-    const plannedGroup = dayPlans[entry.date];
+    const primary = { exercise: draft.exercise, muscleGroup: draft.muscle_group, sets: validSets, date: draft.date };
+    const payload = hasSuperset
+      ? {
+          type: 'superset',
+          date: draft.date,
+          exercises: [primary, { exercise: superset.exercise, muscleGroup: draft.muscle_group, sets: validSupersetSets }],
+        }
+      : { type: 'single', date: draft.date, entry: primary };
 
-    if (!plannedGroup) {
+    const plannedGroups = dayPlans[draft.date] || [];
+
+    if (plannedGroups.length === 0) {
       // Sin plan declarado: se completa solo con el primer registro del día.
-      await finalizeSave(entry, { updatePlan: true, planGroup: entry.muscleGroup });
+      await finalizeSave(payload, { planUpdate: { type: 'replace', groups: [draft.muscle_group] } });
       return;
     }
-    if (plannedGroup === entry.muscleGroup) {
-      await finalizeSave(entry);
+    if (plannedGroups.includes(draft.muscle_group)) {
+      await finalizeSave(payload);
       return;
     }
-    // Hay plan declarado y no coincide: preguntamos antes de guardar.
-    setPendingConflict({ entry, plannedGroup, detectedGroup: entry.muscleGroup });
+    // Hay plan declarado y el grupo detectado no está incluido: preguntamos antes de guardar.
+    setPendingConflict({ payload, plannedGroups, detectedGroup: draft.muscle_group });
   };
 
-  const resolveConflict = async (replace) => {
+  // choice: 'include' (suma el grupo detectado al plan del día), 'replace' (el
+  // día pasa a ser solo el grupo detectado) o 'keep' (no toca el plan del día).
+  const resolveConflict = async (choice) => {
     if (!pendingConflict) return;
-    const { entry, detectedGroup } = pendingConflict;
+    const { payload, detectedGroup } = pendingConflict;
     setPendingConflict(null);
-    await finalizeSave(entry, replace ? { updatePlan: true, planGroup: detectedGroup } : {});
+    if (choice === 'include') {
+      await finalizeSave(payload, { planUpdate: { type: 'add', group: detectedGroup } });
+    } else if (choice === 'replace') {
+      await finalizeSave(payload, { planUpdate: { type: 'replace', groups: [detectedGroup] } });
+    } else {
+      await finalizeSave(payload);
+    }
   };
 
   return (
     <SafeAreaView style={styles.screen} edges={[]}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
       <ConflictModal pendingConflict={pendingConflict} onResolve={resolveConflict} />
+      <CorrectionModal
+        open={correctionModalOpen}
+        aiResult={aiResult}
+        text={correctionText}
+        onChangeText={setCorrectionText}
+        onCancel={() => setCorrectionModalOpen(false)}
+        onSubmit={submitCorrection}
+        submitting={submittingCorrection}
+      />
 
       {!photoPreview && !draft && (
         <View style={styles.weekCard}>
@@ -255,9 +322,17 @@ export default function RegistrarScreen() {
           {draft && !analyzing && (
             <View style={{ marginTop: photoPreview ? 16 : 0, gap: 12 }}>
               {draft.confidence && (
-                <Text style={{ color: COLORS.chalkDim, fontSize: 12 }}>
-                  Confianza de detección: <Text style={{ color: COLORS.brass }}>{draft.confidence}</Text>
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: COLORS.chalkDim, fontSize: 12 }}>
+                    Confianza de detección: <Text style={{ color: COLORS.brass }}>{draft.confidence}</Text>
+                  </Text>
+                  {aiResult && (
+                    <TouchableOpacity onPress={() => setCorrectionModalOpen(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Pencil size={12} color={COLORS.chalkDim} />
+                      <Text style={{ color: COLORS.chalkDim, fontSize: 12, textDecorationLine: 'underline' }}>Corregir</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
 
               <View>
@@ -311,6 +386,73 @@ export default function RegistrarScreen() {
                 </TouchableOpacity>
               </View>
 
+              {!superset ? (
+                <TouchableOpacity
+                  onPress={() => setSuperset({ exercise: '', setsList: [{ weight: '', reps: '' }] })}
+                  style={[styles.addSetButton, { borderColor: COLORS.stand }]}
+                >
+                  <Plus size={14} color={COLORS.stand} />
+                  <Text style={{ color: COLORS.stand, fontSize: 13 }}>Cargar superserie ({draft.muscle_group})</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: 12, gap: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: COLORS.stand, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Superserie · {draft.muscle_group}
+                    </Text>
+                    <TouchableOpacity onPress={() => setSuperset(null)}>
+                      <Text style={{ color: COLORS.chalkDim, fontSize: 12 }}>Quitar</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View>
+                    <Text style={styles.label}>Segundo ejercicio</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={superset.exercise}
+                      onChangeText={(v) => setSuperset((s) => ({ ...s, exercise: v }))}
+                      placeholder="Ej: Press inclinado con mancuernas"
+                      placeholderTextColor={COLORS.chalkDim}
+                    />
+                  </View>
+
+                  <View>
+                    <View style={styles.setsHeader}>
+                      <Text style={[styles.setsHeaderCell, { flex: 1 }]}>Peso (kg)</Text>
+                      <Text style={[styles.setsHeaderCell, { flex: 1 }]}>Reps</Text>
+                      <View style={{ width: 28 }} />
+                    </View>
+                    {superset.setsList.map((s, i) => (
+                      <View key={i} style={styles.setRow}>
+                        <Text style={styles.setIndex}>{i + 1}</Text>
+                        <TextInput
+                          style={[styles.input, { flex: 1 }]}
+                          keyboardType="decimal-pad"
+                          placeholder="0"
+                          placeholderTextColor={COLORS.chalkDim}
+                          value={s.weight}
+                          onChangeText={(v) => updateSupersetRow(i, 'weight', v)}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <ChipRow small options={REPS_OPTIONS} value={Number(s.reps) || null} onChange={(v) => updateSupersetRow(i, 'reps', String(v))} />
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => removeSupersetRow(i)}
+                          disabled={superset.setsList.length === 1}
+                          style={{ width: 28, height: 36, alignItems: 'center', justifyContent: 'center', opacity: superset.setsList.length === 1 ? 0.25 : 1 }}
+                        >
+                          <X size={15} color={COLORS.chalkDim} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity onPress={addSupersetRow} style={styles.addSetButton}>
+                      <Plus size={14} color={COLORS.brass} />
+                      <Text style={{ color: COLORS.brass, fontSize: 13 }}>Agregar serie</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               <View>
                 <Text style={styles.label}>Fecha</Text>
                 <TextInput
@@ -336,7 +478,9 @@ export default function RegistrarScreen() {
                   <>
                     <Check size={18} color="#fff" />
                     <Text style={styles.saveButtonText}>
-                      Registrar {validSets.length > 1 ? `${validSets.length} series` : 'set'}
+                      {hasSuperset
+                        ? `Registrar superserie (${validSets.length + validSupersetSets.length} series)`
+                        : `Registrar ${validSets.length > 1 ? `${validSets.length} series` : 'set'}`}
                     </Text>
                   </>
                 )}
@@ -364,22 +508,65 @@ function ConflictModal({ pendingConflict, onResolve }) {
   const { COLORS } = useTheme();
   const styles = getStyles(COLORS);
   if (!pendingConflict) return null;
+  const { plannedGroups, detectedGroup } = pendingConflict;
+  const plannedLabel = plannedGroups.join(' y ');
   return (
     <Modal transparent animationType="fade" visible>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>¿Cambiar el plan del día?</Text>
+          <Text style={styles.modalTitle}>¿Qué hacemos con el plan de hoy?</Text>
           <Text style={styles.modalBody}>
-            Tenías planificado <Text style={{ color: COLORS.brass, fontWeight: '600' }}>{pendingConflict.plannedGroup}</Text>, pero la
-            foto detectó <Text style={{ color: COLORS.hazard, fontWeight: '600' }}>{pendingConflict.detectedGroup}</Text>. ¿Querés
-            reemplazar el grupo planificado de ese día?
+            Tenías planificado <Text style={{ color: COLORS.brass, fontWeight: '600' }}>{plannedLabel}</Text>, pero la foto detectó{' '}
+            <Text style={{ color: COLORS.hazard, fontWeight: '600' }}>{detectedGroup}</Text>.
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: COLORS.surfaceRaised }]} onPress={() => onResolve(false)}>
-              <Text style={{ color: COLORS.chalk, fontSize: 13 }}>Mantener {pendingConflict.plannedGroup}</Text>
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity style={[styles.modalButtonFull, { backgroundColor: COLORS.brass }]} onPress={() => onResolve('include')}>
+              <Text style={{ color: '#000', fontSize: 13, fontWeight: '600' }}>Incluir {detectedGroup} al día de hoy</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.modalButton, { backgroundColor: COLORS.hazard }]} onPress={() => onResolve(true)}>
-              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Reemplazar</Text>
+            <TouchableOpacity style={[styles.modalButtonFull, { backgroundColor: COLORS.hazard }]} onPress={() => onResolve('replace')}>
+              <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Cambiar el día a {detectedGroup}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButtonFull, { backgroundColor: COLORS.surfaceRaised }]} onPress={() => onResolve('keep')}>
+              <Text style={{ color: COLORS.chalk, fontSize: 13 }}>Mantener {plannedLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function CorrectionModal({ open, aiResult, text, onChangeText, onCancel, onSubmit, submitting }) {
+  const { COLORS } = useTheme();
+  const styles = getStyles(COLORS);
+  if (!open || !aiResult) return null;
+  return (
+    <Modal transparent animationType="fade" visible>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Corregir detección</Text>
+          <Text style={styles.modalBody}>
+            La IA detectó <Text style={{ color: COLORS.brass, fontWeight: '600' }}>{aiResult.exercise}</Text> (
+            {aiResult.muscle_group}). Contanos qué está mal para que no se repita.
+          </Text>
+          <TextInput
+            style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+            value={text}
+            onChangeText={onChangeText}
+            placeholder="Ej: esto es prensa de pierna, no press de banca"
+            placeholderTextColor={COLORS.chalkDim}
+            multiline
+          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: COLORS.surfaceRaised }]} onPress={onCancel}>
+              <Text style={{ color: COLORS.chalk, fontSize: 13 }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: COLORS.hazard, opacity: text.trim() ? 1 : 0.5 }]}
+              onPress={onSubmit}
+              disabled={!text.trim() || submitting}
+            >
+              {submitting ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Enviar</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -478,4 +665,5 @@ const getStyles = (COLORS) =>
   modalTitle: { fontSize: 16, letterSpacing: 0.5, textTransform: 'uppercase', color: COLORS.chalk },
   modalBody: { fontSize: 13, lineHeight: 19, color: COLORS.chalkDim },
   modalButton: { flex: 1, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 8, alignItems: 'center' },
+  modalButtonFull: { borderRadius: 8, paddingVertical: 12, paddingHorizontal: 12, alignItems: 'center' },
 });
